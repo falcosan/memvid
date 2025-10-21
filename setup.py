@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="memvid",
-    version="0.1.3",
+    name="lib-memvid",
+    version="1.0.0",
     author="Saleban Olow",
     author_email="olow30@gmail.com",
     description="Video-based AI memory library for fast semantic search and retrieval",
