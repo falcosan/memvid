@@ -262,6 +262,70 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]
     return chunks
 
 
+def extract_all_frames_from_video(video_path: str, max_workers: int = 4, 
+                                 show_progress: bool = True) -> List[Tuple[int, str]]:
+    """
+    Extract and decode all frames from a video file
+    
+    Args:
+        video_path: Path to video file
+        max_workers: Number of parallel workers for decoding
+        show_progress: Show progress bar
+        
+    Returns:
+        List of (frame_number, decoded_text) tuples sorted by frame number
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video file: {video_path}")
+    
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    logger.info(f"Extracting all {total_frames} frames from {video_path}")
+    
+    frames_data = []
+    frame_num = 0
+    
+    frame_iter = range(total_frames)
+    if show_progress:
+        frame_iter = tqdm(frame_iter, desc="Extracting frames")
+    
+    for _ in frame_iter:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frames_data.append((frame_num, frame.copy()))
+        frame_num += 1
+    
+    cap.release()
+    
+    if show_progress:
+        logger.info(f"Decoding {len(frames_data)} QR codes...")
+    
+    decoded_results = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(decode_qr, frame): num for num, frame in frames_data}
+        
+        future_iter = futures.items()
+        if show_progress:
+            future_iter = tqdm(futures.items(), desc="Decoding QR codes", total=len(futures))
+        
+        for future, frame_num in future_iter:
+            try:
+                decoded = future.result()
+                if decoded:
+                    decoded_results.append((frame_num, decoded))
+                else:
+                    logger.warning(f"Failed to decode frame {frame_num}")
+            except Exception as e:
+                logger.error(f"Error decoding frame {frame_num}: {e}")
+    
+    decoded_results.sort(key=lambda x: x[0])
+    
+    logger.info(f"Successfully decoded {len(decoded_results)} out of {total_frames} frames")
+    return decoded_results
+
+
 def save_index(index_data: Dict[str, Any], output_path: str):
     """Save index data to JSON file"""
     with open(output_path, 'w') as f:

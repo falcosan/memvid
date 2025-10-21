@@ -2,24 +2,22 @@
 
 > **Early-access notice**  
 > Memvid v1 is still experimental. The file format and API may change until we lock in a stable release.
-> 
-> **Memvid v2 – what's next**  
-> - **Living-Memory Engine** – keep adding new data and let LLMs remember it across sessions.  
-> - **Capsule Context** – shareable `.mv2` capsules, each with its own rules and expiry.  
-> - **Time-Travel Debugging** – rewind or branch any chat to review or test.  
-> - **Smart Recall** – local cache guesses what you’ll need and loads it in under 5 ms.  
-> - **Codec Intelligence** – auto-tunes AV1 now and future codecs later, so files keep shrinking.  
-> - **CLI & Dashboard** – simple tools for branching, analytics, and one-command cloud publish.  
+>
+> **Memvid v2 – what's next**
+>
+> - **Living-Memory Engine** – keep adding new data and let LLMs remember it across sessions.
+> - **Capsule Context** – shareable `.mv2` capsules, each with its own rules and expiry.
+> - **Time-Travel Debugging** – rewind or branch any chat to review or test.
+> - **Smart Recall** – local cache guesses what you’ll need and loads it in under 5 ms.
+> - **Codec Intelligence** – auto-tunes AV1 now and future codecs later, so files keep shrinking.
+> - **CLI & Dashboard** – simple tools for branching, analytics, and one-command cloud publish.
 
 Sneak peek of Memvid v2 - a living memory engine that can be used to chat with your knowledge base.
 ![Memvid v2 Preview](assets/mv2.png)
 
-
 ---
 
 ## Memvid v1
-
-
 
 [![PyPI](https://img.shields.io/pypi/v/memvid)](https://pypi.org/project/memvid/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -29,19 +27,19 @@ Sneak peek of Memvid v2 - a living memory engine that can be used to chat with y
 
 # Memvid - Turn millions of text chunks into a single, searchable video file
 
-Memvid compresses an entire knowledge base into **MP4** files while keeping millisecond-level semantic search. Think of it as *SQLite for AI memory* portable, efficient, and self-contained. By encoding text as **QR codes in video frames**, we deliver **50-100×** smaller storage than vector databases with **zero infrastructure**.
+Memvid compresses an entire knowledge base into **MP4** files while keeping millisecond-level semantic search. Think of it as _SQLite for AI memory_ portable, efficient, and self-contained. By encoding text as **QR codes in video frames**, we deliver **50-100×** smaller storage than vector databases with **zero infrastructure**.
 
 ---
 
 ## Why Video Compression Changes Everything 🚀
 
-| What it enables | How video codecs make it possible |
-|---------|-------------------|
+| What it enables             | How video codecs make it possible                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
 | **50-100× smaller storage** | Modern video codecs compress repetitive visual patterns (QR codes) far better than raw embeddings |
-| **Sub-100ms retrieval** | Direct frame seek via index → QR decode → your text. No server round-trips |
-| **Zero infrastructure** | Just Python and MP4 files-no DB clusters, no Docker, no ops |
-| **True portability** | Copy or stream `memory.mp4`-it works anywhere video plays |
-| **Offline-first design** | After encoding, everything runs without internet |
+| **Sub-100ms retrieval**     | Direct frame seek via index → QR decode → your text. No server round-trips                        |
+| **Zero infrastructure**     | Just Python and MP4 files-no DB clusters, no Docker, no ops                                       |
+| **True portability**        | Copy or stream `memory.mp4`-it works anywhere video plays                                         |
+| **Offline-first design**    | After encoding, everything runs without internet                                                  |
 
 ---
 
@@ -62,6 +60,7 @@ Memvid compresses an entire knowledge base into **MP4** files while keeping mill
 ---
 
 ## Installation
+
 ```bash
 pip install memvid
 # For PDF support
@@ -69,6 +68,7 @@ pip install memvid PyPDF2
 ```
 
 ## Quick Start
+
 ```python
 from memvid import MemvidEncoder, MemvidChat
 
@@ -87,6 +87,7 @@ print(response)  # References Apollo 11 in 1969
 ## Real-World Examples
 
 ### Documentation Assistant
+
 ```python
 from memvid import MemvidEncoder
 import os
@@ -103,11 +104,12 @@ encoder.build_video("docs.mp4", "docs_index.json")
 ```
 
 ### PDF Library Search
+
 ```python
 # Index multiple PDFs
 encoder = MemvidEncoder()
 encoder.add_pdf("deep_learning.pdf")
-encoder.add_pdf("machine_learning.pdf") 
+encoder.add_pdf("machine_learning.pdf")
 encoder.build_video("ml_library.mp4", "ml_index.json")
 
 # Semantic search across all books
@@ -117,6 +119,7 @@ results = retriever.search("backpropagation", top_k=5)
 ```
 
 ### Interactive Web UI
+
 ```python
 from memvid import MemvidInteractive
 
@@ -128,11 +131,12 @@ interactive.run()
 ## Advanced Features
 
 ### Scale Optimization
+
 ```python
 # Maximum compression for huge datasets
 encoder.build_video(
     "compressed.mp4",
-    "index.json", 
+    "index.json",
     fps=60,              # More frames/second
     frame_size=256,      # Smaller QR codes
     video_codec='h265',  # Better compression
@@ -141,6 +145,7 @@ encoder.build_video(
 ```
 
 ### Custom Embeddings
+
 ```python
 from sentence_transformers import SentenceTransformer
 
@@ -149,12 +154,14 @@ encoder = MemvidEncoder(embedding_model=model)
 ```
 
 ### Parallel Processing
+
 ```python
 encoder = MemvidEncoder(n_workers=8)
 encoder.add_chunks_parallel(million_chunks)
 ```
 
 ## CLI Usage
+
 ```bash
 # Process documents
 python examples/file_chat.py --input-dir /docs --provider openai
@@ -190,3 +197,21 @@ Memvid is redefining AI memory. Join us:
 - 🔧 Submit PRs (we review quickly!)
 - 💬 Discuss video-based AI memory
 
+## New Features
+
+### Working with Existing Memory Videos
+
+Memvid now supports loading, extending, and merging existing memory videos:
+
+```python
+from memvid import MemvidEncoder
+
+# Start with existing knowledge base
+encoder = MemvidEncoder.from_videos(["kb_v1.mp4"])
+
+# Add structured product data from CSV
+encoder.add_csv("products.csv", text_column="details")
+
+# Build comprehensive memory
+encoder.build_video("complete_kb.mp4", "complete_kb_index.json")
+```

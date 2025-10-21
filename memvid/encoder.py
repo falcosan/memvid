@@ -13,7 +13,7 @@ from tqdm import tqdm
 import cv2
 import numpy as np
 
-from .utils import encode_to_qr, qr_to_frame, chunk_text
+from .utils import encode_to_qr, qr_to_frame, chunk_text, extract_all_frames_from_video
 from .index import IndexManager
 from .config import get_default_config, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, VIDEO_CODEC, get_codec_parameters
 from .docker_manager import DockerManager
@@ -57,6 +57,33 @@ class MemvidEncoder:
             overlap: Overlap between chunks
         """
         chunks = chunk_text(text, chunk_size, overlap)
+        self.add_chunks(chunks)
+
+    def load_chunks_from_video(self, video_file: str, max_workers: int = 4, 
+                               show_progress: bool = True) -> List[str]:
+        if not Path(video_file).exists():
+            raise FileNotFoundError(f"Video file not found: {video_file}")
+        
+        logger.info(f"Loading chunks from video: {video_file}")
+
+        decoded_frames = extract_all_frames_from_video(video_file, max_workers, show_progress)
+        
+        chunks = []
+        for frame_num, decoded_data in decoded_frames:
+            try:
+                chunk_data = json.loads(decoded_data)
+                text = chunk_data.get("text", "")
+                if text:
+                    chunks.append(text)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse frame {frame_num}: {e}")
+        
+        logger.info(f"Loaded {len(chunks)} chunks from {video_file}")
+        return chunks
+    
+    def merge_from_video(self, video_file: str, max_workers: int = 4, 
+                         show_progress: bool = True):
+        chunks = self.load_chunks_from_video(video_file, max_workers, show_progress)
         self.add_chunks(chunks)
 
     def add_pdf(self, pdf_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP):
@@ -117,8 +144,6 @@ class MemvidEncoder:
             book = epub.read_epub(epub_path)
             text_content = []
 
-            logger.info(f"Extracting text from EPUB: {Path(epub_path).name}")
-
             # Extract text from all document items
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
@@ -152,6 +177,29 @@ class MemvidEncoder:
         except Exception as e:
             logger.error(f"Error processing EPUB {epub_path}: {e}")
             raise
+
+    def add_csv(self, csv_path: str, text_column: str, 
+                chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP,
+                delimiter: str = ',', encoding: str = 'utf-8'):
+        import csv
+        
+        if not Path(csv_path).exists():
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+        with open(csv_path, 'r', encoding=encoding) as f:
+            reader = csv.DictReader(f, delimiter=delimiter)
+            
+            if text_column not in reader.fieldnames:
+                raise ValueError(f"Column '{text_column}' not found in CSV. Available columns: {reader.fieldnames}")
+            
+            rows_processed = 0
+            for row in reader:
+                text = row.get(text_column, '').strip()
+                if text:
+                    self.add_text(text, chunk_size, overlap)
+                    rows_processed += 1
+            
+            logger.info(f"Added CSV content: {rows_processed} rows from {Path(csv_path).name}")
 
     def create_video_writer(self, output_path: str, codec: str = VIDEO_CODEC) -> cv2.VideoWriter:
         """
@@ -211,9 +259,6 @@ class MemvidEncoder:
             qr_image = encode_to_qr(json.dumps(chunk_data))
             frame_path = frames_dir / f"frame_{frame_num:06d}.png"
             qr_image.save(frame_path)
-
-        created_frames = list(frames_dir.glob("frame_*.png"))
-        print(f"🐛 FRAMES: {len(created_frames)} files in {frames_dir}")
 
         logger.info(f"Generated {len(self.chunks)} QR frames in {frames_dir}")
         return frames_dir
@@ -286,16 +331,13 @@ class MemvidEncoder:
             if isinstance(extra_args, str):
                 # Parse string args and add thread count for x264/x265
                 if ffmpeg_codec == 'libx265':
-                    extra_args = f"{extra_args}:threads={thread_count}"
-                    cmd.extend(['-x265-params', extra_args])
+                    cmd.extend(['-x265-params', f"{extra_args}:threads={thread_count}"])
                 elif ffmpeg_codec == 'libx264':
-                    extra_args = f"{extra_args}:threads={thread_count}"
-                    cmd.extend(['-x264-params', extra_args])
+                    cmd.extend(['-x264-params', f"{extra_args}:threads={thread_count}"])
             else:
                 # Direct args list
                 cmd.extend(extra_args)
 
-        # General optimizations
         cmd.extend(['-movflags', '+faststart', '-avoid_negative_ts', 'make_zero'])
 
         cmd.append(str(output_file))
@@ -383,8 +425,6 @@ class MemvidEncoder:
         # Use full codec mapping
         from .config import codec_parameters
 
-        print(f"🐛 FFMPEG: frames={frames_dir} → docker_mount={frames_dir.parent}")
-
         cmd = self._build_ffmpeg_command(frames_dir, output_file, codec)
 
         if self.dcker_mngr and self.dcker_mngr.should_use_docker(codec):
@@ -402,15 +442,12 @@ class MemvidEncoder:
                 "fps": codec_parameters[codec]["video_fps"],
                 "duration_seconds": frame_count / codec_parameters[codec]["video_fps"]
             })
-
             return result
-
         else:
             if show_progress:
                 logger.info(f"Encoding with native FFmpeg using {codec} codec...")
 
             result = subprocess.run(cmd, capture_output=True, text=True)
-
             if result.returncode != 0:
                 raise RuntimeError(f"Native FFmpeg failed: {result.stderr}")
 
@@ -572,5 +609,12 @@ class MemvidEncoder:
 
         for doc in documents:
             encoder.add_text(doc, chunk_size, overlap)
-
+        return encoder
+    
+    @classmethod
+    def from_videos(cls, video_files: List[str], config: Optional[Dict[str, Any]] = None,
+                   max_workers: int = 4, show_progress: bool = True) -> 'MemvidEncoder':
+        encoder = cls(config)
+        for video_file in video_files:
+            encoder.merge_from_video(video_file, max_workers, show_progress)
         return encoder
