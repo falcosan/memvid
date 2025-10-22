@@ -69,16 +69,25 @@ class MemvidEncoder:
         decoded_frames = extract_all_frames_from_video(video_file, max_workers, show_progress)
         
         chunks = []
+        successfully_parsed = 0
         for frame_num, decoded_data in decoded_frames:
             try:
                 chunk_data = json.loads(decoded_data)
                 text = chunk_data.get("text", "")
                 if text:
                     chunks.append(text)
+                    successfully_parsed += 1
+                else:
+                    logger.debug(f"Frame {frame_num} has empty text field")
             except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse frame {frame_num}: {e}")
+                logger.debug(f"Frame {frame_num} is not JSON, using raw data: {e}")
+                if decoded_data and decoded_data.strip():
+                    chunks.append(decoded_data)
+                    successfully_parsed += 1
+            except Exception as e:
+                logger.warning(f"Unexpected error processing frame {frame_num}: {e}")
         
-        logger.info(f"Loaded {len(chunks)} chunks from {video_file}")
+        logger.info(f"Loaded {len(chunks)} chunks from {video_file} (parsed {successfully_parsed} frames)")
         return chunks
     
     def merge_from_video(self, video_file: str, max_workers: int = 4, 

@@ -301,24 +301,9 @@ def extract_all_frames_from_video(video_path: str, max_workers: int = 4,
     if show_progress:
         logger.info(f"Decoding {len(frames_data)} QR codes...")
     
-    decoded_results = []
+    decoded_results = parallel_decode_qr(frames_data, max_workers)
     
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(decode_qr, frame): num for num, frame in frames_data}
-        
-        future_iter = futures.items()
-        if show_progress:
-            future_iter = tqdm(futures.items(), desc="Decoding QR codes", total=len(futures))
-        
-        for future, frame_num in future_iter:
-            try:
-                decoded = future.result()
-                if decoded:
-                    decoded_results.append((frame_num, decoded))
-                else:
-                    logger.warning(f"Failed to decode frame {frame_num}")
-            except Exception as e:
-                logger.error(f"Error decoding frame {frame_num}: {e}")
+    decoded_results = [(num, data) for num, data in decoded_results if data is not None]
     
     decoded_results.sort(key=lambda x: x[0])
     
