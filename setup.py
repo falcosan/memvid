@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="lib-memvid",
-    version="1.0.0",
+    version="1.0.1",
     author="Saleban Olow",
     author_email="olow30@gmail.com",
     description="Video-based AI memory library for fast semantic search and retrieval",
