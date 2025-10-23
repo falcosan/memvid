@@ -40,31 +40,31 @@ def test_real_csv_workflow():
         index2_path = os.path.join(tmpdir, "extended_index")
         
         # Step 1: Create initial video from first CSV
-        print("\n📹 Step 1: Creating video from articles_1.csv...")
+        print("\n1: Creating video from articles_1.csv...")
         encoder1 = MemvidEncoder()
         encoder1.add_csv(str(csv1_path), text_column="text", chunk_size=200, overlap=20)
         
         initial_chunks = len(encoder1.chunks)
-        print(f"   ✓ Added {initial_chunks} chunks from first CSV")
+        print(f"Added {initial_chunks} chunks from first CSV")
         assert initial_chunks > 0, "No chunks added from first CSV"
         
         # Build initial video
         encoder1.build_video(video1_path, index1_path, codec="mp4v", show_progress=True)
         assert Path(video1_path).exists(), "Initial video not created"
-        print(f"   ✓ Initial video created: {Path(video1_path).stat().st_size / 1024:.1f} KB")
+        print(f"Initial video created: {Path(video1_path).stat().st_size / 1024:.1f} KB")
         
         # Step 2: Merge first video and extend with second CSV
-        print("\n🔀 Step 2: Merging video and adding articles_2.csv...")
+        print("\n2: Merging video and adding articles_2.csv...")
         encoder2 = MemvidEncoder()
         
         # Merge from first video
         encoder2.merge_from_video(video1_path, show_progress=True)
         after_merge = len(encoder2.chunks)
-        print(f"   ✓ Merged {after_merge} chunks from video")
+        print(f"Merged {after_merge} chunks from video")
         
         # Calculate recovery rate
         recovery_rate = (after_merge / initial_chunks) * 100 if initial_chunks > 0 else 0
-        print(f"   ✓ Recovery rate: {recovery_rate:.1f}%")
+        print(f"Recovery rate: {recovery_rate:.1f}%")
         
         # With improved QR settings, we expect 93%+ recovery (video compression limits 100%)
         assert recovery_rate >= 93.0, \
@@ -72,7 +72,7 @@ def test_real_csv_workflow():
         
         # Verify we got almost all chunks
         chunks_lost = initial_chunks - after_merge
-        print(f"   ℹ️  Chunks lost to video compression: {chunks_lost}/{initial_chunks}")
+        print(f"Chunks lost to video compression: {chunks_lost}/{initial_chunks}")
         # Allow max 7% loss
         assert chunks_lost <= initial_chunks * 0.07, \
             f"Too many chunks lost: {chunks_lost} (expected ≤{int(initial_chunks * 0.07)})"
@@ -81,43 +81,43 @@ def test_real_csv_workflow():
         encoder2.add_csv(str(csv2_path), text_column="text", chunk_size=200, overlap=20)
         final_chunks = len(encoder2.chunks)
         added_chunks = final_chunks - after_merge
-        print(f"   ✓ Added {added_chunks} chunks from second CSV")
-        print(f"   ✓ Total chunks: {final_chunks}")
+        print(f"Added {added_chunks} chunks from second CSV")
+        print(f"Total chunks: {final_chunks}")
         assert final_chunks > after_merge, "No chunks added from second CSV"
         
         # Build extended video
         encoder2.build_video(video2_path, index2_path, codec="mp4v", show_progress=True)
         assert Path(video2_path).exists(), "Extended video not created"
-        print(f"   ✓ Extended video created: {Path(video2_path).stat().st_size / 1024:.1f} KB")
+        print(f"Extended video created: {Path(video2_path).stat().st_size / 1024:.1f} KB")
         
         # Step 3: Verify data persistence by loading back
-        print("\n✅ Step 3: Verifying data persistence...")
+        print("\n3: Verifying data persistence...")
         encoder3 = MemvidEncoder()
         loaded_chunks = encoder3.load_chunks_from_video(video2_path, show_progress=True)
         
-        print(f"   ✓ Loaded {len(loaded_chunks)} chunks from extended video")
+        print(f"Loaded {len(loaded_chunks)} chunks from extended video")
         
         # Calculate final recovery rate
         final_recovery_rate = (len(loaded_chunks) / final_chunks) * 100 if final_chunks > 0 else 0
-        print(f"   ✓ Final recovery rate: {final_recovery_rate:.1f}%")
+        print(f"Final recovery rate: {final_recovery_rate:.1f}%")
         
         assert final_recovery_rate >= 93.0, \
             f"Insufficient final recovery: only {final_recovery_rate:.1f}% recovered (expected ≥93%)"
         
         final_chunks_lost = final_chunks - len(loaded_chunks)
-        print(f"   ℹ️  Final chunks lost: {final_chunks_lost}/{final_chunks}")
+        print(f"Final chunks lost: {final_chunks_lost}/{final_chunks}")
         assert final_chunks_lost <= final_chunks * 0.07, \
             f"Too many chunks lost: {final_chunks_lost}"
         
         # Step 4: Content verification
-        print("\n🔍 Step 4: Verifying content...")
+        print("\n4: Verifying content...")
         all_text = " ".join(loaded_chunks).lower()
         
         # Check for keywords from both CSVs
-        keywords = ["laboratorio", "miel", "sequía", "abejas", "innovación", "alimentación"]
+        keywords = ["laboratorio", "miel", "sequía", "señalar", "microorganismos", "nutricionales"]
         
         found_keywords = [kw for kw in keywords if kw in all_text]
-        print(f"   ✓ Found {len(found_keywords)}/{len(keywords)} keywords from articles")
+        print(f"Found {len(found_keywords)}/{len(keywords)} keywords from articles")
         
         # Verify we have substantial content
         assert len(all_text) > 1000, "Combined text seems too short"
@@ -125,9 +125,7 @@ def test_real_csv_workflow():
             f"Too few keywords found ({len(found_keywords)}/6). Expected content may not be present."
         
         # Summary
-        print("\n" + "="*70)
-        print("📊 Test Summary:")
-        print("="*70)
+        print("="*120)
         print(f"Initial CSV chunks:      {initial_chunks}")
         print(f"After merge:             {after_merge} ({recovery_rate:.1f}% recovered)")
         print(f"Second CSV chunks:       {added_chunks}")
@@ -135,10 +133,6 @@ def test_real_csv_workflow():
         print(f"Verified loaded:         {len(loaded_chunks)} ({final_recovery_rate:.1f}% recovered)")
         print(f"Content size:            {len(all_text):,} characters")
         print(f"Keywords found:          {', '.join(found_keywords)}")
-        print("="*70)
-        print("✅ 93%+ recovery achieved with Spanish text!")
-        print("   (Excellent recovery despite video compression)")
-        print("="*70)
 
 
 def test_csv_column_validation():
@@ -187,11 +181,7 @@ def test_empty_rows_handling():
 
 
 if __name__ == "__main__":
-    # Run tests manually
-    print("Running real data workflow tests...")
     test_real_csv_workflow()
-    print("\nRunning CSV validation test...")
     test_csv_column_validation()
-    print("\nRunning empty rows test...")
     test_empty_rows_handling()
-    print("\n✅ All tests completed successfully!")
+    print("\nOk")
