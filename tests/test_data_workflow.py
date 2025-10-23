@@ -4,14 +4,9 @@ Test real-world workflow: Create video from first CSV, then extend with second C
 import os
 import tempfile
 from pathlib import Path
-
 from memvid import MemvidEncoder
 
-try:
-    import pytest
-    HAS_PYTEST = True
-except ImportError:
-    HAS_PYTEST = False
+MIN_RECOVERY_RATE = 90.0
 
 def test_real_csv_workflow():
     """
@@ -44,7 +39,7 @@ def test_real_csv_workflow():
     # Step 1: Create initial video from first CSV
     print("\nStep 1: Creating video from articles_1.csv...")
     encoder1 = MemvidEncoder()
-    encoder1.add_csv(str(csv1_path), text_column="text", chunk_size=200, overlap=20)
+    encoder1.add_csv(str(csv1_path), text_column="text")
     
     initial_chunks = len(encoder1.chunks)
     print(f"   Added {initial_chunks} chunks from first CSV")
@@ -69,8 +64,8 @@ def test_real_csv_workflow():
     print(f"   Recovery rate: {recovery_rate:.1f}%")
     
     # With improved QR settings, expect high recovery; allow realistic loss with Spanish and compression
-    assert recovery_rate >= 90.0, \
-        f"Insufficient recovery: only {recovery_rate:.1f}% recovered (expected ≥90%)"
+    assert recovery_rate >= MIN_RECOVERY_RATE, \
+        f"Insufficient recovery: only {recovery_rate:.1f}% recovered (expected ≥{MIN_RECOVERY_RATE}%)"
     
     chunks_lost = initial_chunks - after_merge
     print(f"   Chunks lost to video compression: {chunks_lost}/{initial_chunks}")
@@ -78,7 +73,7 @@ def test_real_csv_workflow():
         f"Too many chunks lost: {chunks_lost} (expected ≤{int(initial_chunks * 0.7)})"
     
     # Add second CSV
-    encoder2.add_csv(str(csv2_path), text_column="text", chunk_size=200, overlap=20)
+    encoder2.add_csv(str(csv2_path), text_column="text")
     final_chunks = len(encoder2.chunks)
     added_chunks = final_chunks - after_merge
     print(f"   Added {added_chunks} chunks from second CSV")
@@ -101,8 +96,8 @@ def test_real_csv_workflow():
     final_recovery_rate = (len(loaded_chunks) / final_chunks) * 100 if final_chunks > 0 else 0
     print(f"   Final recovery rate: {final_recovery_rate:.1f}%")
     
-    assert final_recovery_rate >= 90.0, \
-        f"Insufficient final recovery: only {final_recovery_rate:.1f}% recovered (expected ≥90%)"
+    assert final_recovery_rate >= MIN_RECOVERY_RATE, \
+        f"Insufficient final recovery: only {final_recovery_rate:.1f}% recovered (expected ≥{MIN_RECOVERY_RATE}%)"
     
     final_chunks_lost = final_chunks - len(loaded_chunks)
     print(f"   Final chunks lost: {final_chunks_lost}/{final_chunks}")
@@ -152,15 +147,11 @@ def test_csv_column_validation():
     
     # Test with wrong column - should raise error
     encoder2 = MemvidEncoder()
-    if HAS_PYTEST:
-        with pytest.raises(ValueError, match="Column.*not found"):
-            encoder2.add_csv(str(csv1_path), text_column="nonexistent_column")
-    else:
-        try:
-            encoder2.add_csv(str(csv1_path), text_column="nonexistent_column")
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert "not found" in str(e)
+    try:
+        encoder2.add_csv(str(csv1_path), text_column="nonexistent_column")
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "not found" in str(e)
 
 def test_empty_rows_handling():
     """Test that empty rows in CSV are properly handled"""

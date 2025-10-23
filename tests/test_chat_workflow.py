@@ -17,12 +17,9 @@ load_dotenv()
 
 
 # Test configuration
-CHUNK_SIZE = 200
-OVERLAP = 20
 CODEC = "mp4v"
 MIN_RESPONSE_LENGTH = 50
 MIN_RECOVERY_RATE = 90.0
-SEARCH_TOP_K = 5
 DEEPSEEK_MODEL = "deepseek/deepseek-chat-v3.1:free"
 
 
@@ -45,7 +42,7 @@ def _setup_paths() -> Tuple[Path, Path, Path]:
 def _create_video_from_csv(csv_path: Path, video_path: str, index_path: str) -> int:
     """Create video from CSV and return chunk count."""
     encoder = MemvidEncoder()
-    encoder.add_csv(str(csv_path), text_column="text", chunk_size=CHUNK_SIZE, overlap=OVERLAP)
+    encoder.add_csv(str(csv_path), text_column="text")
     chunk_count = len(encoder.chunks)
     
     assert chunk_count > 0, f"No chunks added from {csv_path.name}"
@@ -73,7 +70,7 @@ def _merge_and_extend_video(
     assert recovery_rate >= MIN_RECOVERY_RATE, \
         f"Insufficient recovery: {recovery_rate:.1f}% (expected >= {MIN_RECOVERY_RATE}%)"
     
-    encoder.add_csv(str(csv_path), text_column="text", chunk_size=CHUNK_SIZE, overlap=OVERLAP)
+    encoder.add_csv(str(csv_path), text_column="text")
     final_chunks = len(encoder.chunks)
     added_chunks = final_chunks - after_merge
     
@@ -213,9 +210,9 @@ def test_chat_integration_with_merged_data():
     
     # Step 6 & 7: Verify context retrieval
     print("\nStep 6: Verifying context retrieval from both datasets")
-    context_csv1 = chat.search_context("miel laboratorio", top_k=SEARCH_TOP_K)
-    context_csv2 = chat.search_context("sequía microorganismos", top_k=SEARCH_TOP_K)
-    
+    context_csv1 = chat.search_context("miel laboratorio")
+    context_csv2 = chat.search_context("sequía microorganismos")
+
     assert len(context_csv1) > 0, "No context found for CSV1 keywords"
     assert len(context_csv2) > 0, "No context found for CSV2 keywords"
     print(f"  Found {len(context_csv1)} chunks for CSV1, {len(context_csv2)} chunks for CSV2")
