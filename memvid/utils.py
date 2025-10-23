@@ -63,7 +63,7 @@ def encode_to_qr(data: str) -> Image.Image:
 
 def decode_qr(image: np.ndarray) -> Optional[str]:
     """
-    Decode QR code from image frame
+    Decode QR code from image frame with multiple strategies for maximum reliability
     
     Args:
         image: Image frame as numpy array
@@ -71,24 +71,149 @@ def decode_qr(image: np.ndarray) -> Optional[str]:
     Returns:
         Decoded string or None if decode fails
     """
+    # Initialize detector once for reuse
+    detector = cv2.QRCodeDetector()
+    
+    def try_decode(img: np.ndarray) -> Optional[str]:
+        """
+        Attempt to decode QR code from image and handle decompression if needed.
+        
+        Args:
+            img: Preprocessed image as numpy array
+            
+        Returns:
+            Decoded string or None if decode fails
+        """
+        # Early return if image is invalid
+        if img is None or img.size == 0:
+            return None
+        
+        try:
+            # Attempt QR code detection and decoding
+            decoded_data, bbox, _ = detector.detectAndDecode(img)
+            
+            # Check if decoding was successful
+            if not decoded_data:
+                return None
+            
+            # Handle compressed data if present
+            if decoded_data.startswith("GZ:"):
+                try:
+                    # Extract base64 encoded compressed data
+                    encoded_data = decoded_data[3:]
+                    # Decode from base64
+                    compressed_bytes = base64.b64decode(encoded_data)
+                    # Decompress gzip data
+                    decompressed_bytes = gzip.decompress(compressed_bytes)
+                    # Decode to string
+                    return decompressed_bytes.decode('utf-8')
+                except (base64.binascii.Error, gzip.BadGzipFile, UnicodeDecodeError) as e:
+                    logger.debug(f"Failed to decompress QR data: {e}")
+                    return None
+            
+            # Return uncompressed data as-is
+            return decoded_data
+            
+        except cv2.error as e:
+            # OpenCV-specific errors (e.g., invalid image format)
+            logger.debug(f"OpenCV error during QR decode: {e}")
+            return None
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.debug(f"Unexpected error during QR decode: {e}")
+            return None
+    
     try:
-        # Convert to grayscale for better QR detection
+        # Convert to grayscale first
         if len(image.shape) == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
         
-        # Detect and decode
-        detector = cv2.QRCodeDetector()
-        data, bbox, straight_qrcode = detector.detectAndDecode(image)
+        # Strategy 1: Try original grayscale
+        result = try_decode(gray)
+        if result:
+            return result
         
-        if data:
-            # Check if data was compressed
-            if data.startswith("GZ:"):
-                compressed_data = base64.b64decode(data[3:])
-                data = gzip.decompress(compressed_data).decode()
-            return data
+        # Strategy 2: Try upscaled version (helps with small QR codes)
+        upscaled = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+        result = try_decode(upscaled)
+        if result:
+            return result
+        
+        # Strategy 3: Enhance contrast with CLAHE
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(gray)
+        result = try_decode(enhanced)
+        if result:
+            return result
+        
+        # Strategy 4: Binary threshold with Otsu's method
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        result = try_decode(binary)
+        if result:
+            return result
+        
+        # Strategy 5: Upscale binary image
+        binary_up = cv2.resize(binary, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_NEAREST)
+        result = try_decode(binary_up)
+        if result:
+            return result
+        
+        # Strategy 6: Adaptive threshold (local threshold for varying illumination)
+        adaptive = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+        )
+        result = try_decode(adaptive)
+        if result:
+            return result
+        
+        # Strategy 7: Denoise + threshold
+        denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        _, denoised_binary = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        result = try_decode(denoised_binary)
+        if result:
+            return result
+        
+        # Strategy 8: Morphological operations to clean up
+        kernel = np.ones((2, 2), np.uint8)
+        morph = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+        morph = cv2.morphologyEx(morph, cv2.MORPH_OPEN, kernel)
+        result = try_decode(morph)
+        if result:
+            return result
+        
+        # Strategy 9: Try with sharpening
+        kernel_sharp = np.array([[-1,-1,-1],
+                                 [-1, 9,-1],
+                                 [-1,-1,-1]])
+        sharpened = cv2.filter2D(gray, -1, kernel_sharp)
+        result = try_decode(sharpened)
+        if result:
+            return result
+        
+        # Strategy 10: Try inverted image (white on black)
+        inverted = cv2.bitwise_not(gray)
+        result = try_decode(inverted)
+        if result:
+            return result
+        
+        # Strategy 11: Bilateral filter to reduce noise while preserving edges
+        bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
+        _, bilateral_binary = cv2.threshold(bilateral, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        result = try_decode(bilateral_binary)
+        if result:
+            return result
+        
+        # Strategy 12: Try original color image as last resort
+        if len(image.shape) == 3:
+            result = try_decode(image)
+            if result:
+                return result
                 
     except Exception as e:
-        logger.warning(f"QR decode failed: {e}")
+        logger.debug(f"QR decode failed: {e}")
+    
     return None
 
 

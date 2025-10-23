@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 # QR Code settings
 QR_VERSION = None # None = auto-fit, 1-40 = fixed version. Lower versions work better with OpenCV decoder
-QR_ERROR_CORRECTION = 'M'  # L, M, Q, H (M provides good balance of error correction and data capacity)
+QR_ERROR_CORRECTION = 'M'  # L, M, Q, H (H = highest error correction for complex text)
 QR_BOX_SIZE = 10   # Pixel size of each QR module (higher = larger, easier to scan)
 QR_BORDER = 4      # Size of border around QR code
 QR_FILL_COLOR = "black"
@@ -20,8 +20,8 @@ DEFAULT_OVERLAP = 32
 VIDEO_CODEC = 'h265'        # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
 MP4V_PARAMETERS= {"video_file_type": "mp4",
                   "video_fps": 15,
-                  "frame_height": 256,
-                  "frame_width": 256,
+                  "frame_height": 512,      # Increased for better QR quality
+                  "frame_width": 512,       # Increased for better QR quality
                   "video_crf": 18,           # Constant Rate Factor (0-51, lower = better quality, 18 is visually lossless)
                   "video_preset": "medium",  # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
                   "video_profile": "high", # baseline, main, high (baseline for max compatibility)
