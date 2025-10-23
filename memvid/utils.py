@@ -63,43 +63,29 @@ def encode_to_qr(data: str) -> Image.Image:
 
 def decode_qr(image: np.ndarray) -> Optional[str]:
     """
-    Decode QR code from image
+    Decode QR code from image frame
     
     Args:
-        image: OpenCV image array
+        image: Image frame as numpy array
         
     Returns:
         Decoded string or None if decode fails
     """
     try:
-        # Convert to grayscale if needed for better detection
+        # Convert to grayscale for better QR detection
         if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        # Initialize OpenCV QR code detector
+        # Detect and decode
         detector = cv2.QRCodeDetector()
-        
-        # Try to detect and decode - use grayscale for better results
-        data, bbox, straight_qrcode = detector.detectAndDecode(gray)
+        data, bbox, straight_qrcode = detector.detectAndDecode(image)
         
         if data:
             # Check if data was compressed
             if data.startswith("GZ:"):
                 compressed_data = base64.b64decode(data[3:])
                 data = gzip.decompress(compressed_data).decode()
-            
             return data
-        
-        # If grayscale failed, try with original image
-        if len(image.shape) == 3:
-            data, bbox, straight_qrcode = detector.detectAndDecode(image)
-            if data:
-                if data.startswith("GZ:"):
-                    compressed_data = base64.b64decode(data[3:])
-                    data = gzip.decompress(compressed_data).decode()
-                return data
                 
     except Exception as e:
         logger.warning(f"QR decode failed: {e}")

@@ -77,8 +77,6 @@ class MemvidEncoder:
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_file}")
         
-        logger.info(f"Loading chunks from video: {video_path.name}")
-
         # Extract and decode all frames
         decoded_frames = extract_all_frames_from_video(str(video_path), max_workers, show_progress)
         
@@ -87,47 +85,23 @@ class MemvidEncoder:
             return []
         
         chunks = []
-        successfully_parsed = 0
-        failed_frames = 0
-        
         for frame_num, decoded_data in decoded_frames:
             if not decoded_data or not decoded_data.strip():
-                failed_frames += 1
-                logger.debug(f"Frame {frame_num} has no data")
                 continue
                 
             try:
                 # Try to parse as JSON (standard format)
                 chunk_data = json.loads(decoded_data)
                 text = chunk_data.get("text", "")
-                
                 if text and text.strip():
                     chunks.append(text)
-                    successfully_parsed += 1
-                else:
-                    failed_frames += 1
-                    logger.debug(f"Frame {frame_num} has empty text field in JSON")
-                    
             except json.JSONDecodeError:
                 # Not JSON - use raw decoded data as text
                 if decoded_data.strip():
                     chunks.append(decoded_data)
-                    successfully_parsed += 1
-                    logger.debug(f"Frame {frame_num} used as raw text (not JSON)")
-                else:
-                    failed_frames += 1
-                    
-            except Exception as e:
-                failed_frames += 1
-                logger.warning(f"Unexpected error processing frame {frame_num}: {e}")
         
-        logger.info(
-            f"Loaded {len(chunks)} chunks from {video_path.name} "
-            f"(parsed {successfully_parsed}/{len(decoded_frames)} frames, {failed_frames} failed)"
-        )
-        
-        if len(chunks) == 0:
-            logger.warning(f"Warning: No valid chunks extracted from {video_path.name}")
+        if not chunks:
+            logger.warning(f"No valid chunks extracted from {video_path.name}")
         
         return chunks
     
@@ -141,17 +115,9 @@ class MemvidEncoder:
             max_workers: Number of parallel workers for decoding
             show_progress: Show progress bar
         """
-        chunks_before = len(self.chunks)
         chunks = self.load_chunks_from_video(video_file, max_workers, show_progress)
-        
         if chunks:
             self.add_chunks(chunks)
-            logger.info(
-                f"Merged {len(chunks)} chunks from video. "
-                f"Total chunks: {chunks_before} -> {len(self.chunks)}"
-            )
-        else:
-            logger.warning(f"No chunks were merged from {video_file}")
 
     def add_pdf(self, pdf_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP):
         """
@@ -263,8 +229,6 @@ class MemvidEncoder:
         
         if not Path(csv_path).exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
-
-        logger.info(f"Loading CSV file: {Path(csv_path).name}")
         
         with open(csv_path, 'r', encoding=encoding) as f:
             reader = csv.DictReader(f, delimiter=delimiter)
@@ -272,38 +236,13 @@ class MemvidEncoder:
             if text_column not in reader.fieldnames:
                 available = ', '.join(reader.fieldnames) if reader.fieldnames else 'none'
                 raise ValueError(
-                    f"Column '{text_column}' not found in CSV.\n"
-                    f"Available columns: {available}"
+                    f"Column '{text_column}' not found in CSV. Available columns: {available}"
                 )
             
-            rows_processed = 0
-            rows_skipped = 0
-            chunks_before = len(self.chunks)
-            
-            for row_num, row in enumerate(reader, start=2):  # Start at 2 (after header)
+            for row in reader:
                 text = row.get(text_column, '').strip()
-                
-                if not text:
-                    rows_skipped += 1
-                    logger.debug(f"Skipping empty row {row_num}")
-                    continue
-                
-                # Add text with chunking - handles both short and long entries
-                self.add_text(text, chunk_size, overlap)
-                rows_processed += 1
-            
-            chunks_added = len(self.chunks) - chunks_before
-            
-            logger.info(
-                f"Added CSV content from {Path(csv_path).name}: "
-                f"{rows_processed} rows processed, {chunks_added} chunks created"
-            )
-            
-            if rows_skipped > 0:
-                logger.info(f"Skipped {rows_skipped} empty rows")
-            
-            if rows_processed == 0:
-                logger.warning(f"No data was added from {Path(csv_path).name}")
+                if text:
+                    self.add_text(text, chunk_size, overlap)
 
     def create_video_writer(self, output_path: str, codec: str = VIDEO_CODEC) -> cv2.VideoWriter:
         """
@@ -737,72 +676,3 @@ class MemvidEncoder:
         for video_file in video_files:
             encoder.merge_from_video(video_file, max_workers, show_progress)
         return encoder
-    
-    def extend_and_rebuild(self, 
-                          output_video: str,
-                          output_index: str,
-                          csv_files: Optional[List[str]] = None,
-                          text_column: str = "text",
-                          video_files: Optional[List[str]] = None,
-                          codec: str = VIDEO_CODEC,
-                          show_progress: bool = True) -> Dict[str, Any]:
-        """
-        Convenience method to extend current encoder with additional data and rebuild video.
-        
-        This method allows you to:
-        1. Merge data from existing videos
-        2. Add data from CSV files
-        3. Build a new combined video with all data
-        
-        Args:
-            output_video: Path for output video file
-            output_index: Path for output index file
-            csv_files: Optional list of CSV files to add
-            text_column: Column name for text in CSV files
-            video_files: Optional list of video files to merge
-            codec: Video codec to use
-            show_progress: Show progress bars
-            
-        Returns:
-            Build statistics dictionary
-            
-        Example:
-            >>> encoder = MemvidEncoder()
-            >>> encoder.add_text("Initial data")
-            >>> stats = encoder.extend_and_rebuild(
-            ...     output_video="combined.mp4",
-            ...     output_index="combined_index.json",
-            ...     video_files=["old_memory.mp4"],
-            ...     csv_files=["new_data.csv"],
-            ...     text_column="info"
-            ... )
-        """
-        initial_chunks = len(self.chunks)
-        
-        # Merge from videos if provided
-        if video_files:
-            for video_file in video_files:
-                logger.info(f"Merging data from video: {Path(video_file).name}")
-                self.merge_from_video(video_file, show_progress=show_progress)
-        
-        # Add CSV data if provided
-        if csv_files:
-            for csv_file in csv_files:
-                logger.info(f"Adding data from CSV: {Path(csv_file).name}")
-                self.add_csv(csv_file, text_column=text_column)
-        
-        final_chunks = len(self.chunks)
-        added_chunks = final_chunks - initial_chunks
-        
-        logger.info(
-            f"Extended encoder: {initial_chunks} -> {final_chunks} chunks "
-            f"(+{added_chunks} new)"
-        )
-        
-        # Build the combined video
-        return self.build_video(
-            output_video,
-            output_index,
-            codec=codec,
-            show_progress=show_progress
-        )
