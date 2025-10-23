@@ -201,17 +201,51 @@ Memvid is redefining AI memory. Join us:
 
 ### Working with Existing Memory Videos
 
-Memvid now supports loading, extending, and merging existing memory videos:
+Memvid supports loading, extending, and merging existing memory videos. This allows you to:
+
+- Merge multiple video memories into one
+- Add new data from CSV files to existing videos
+- Combine different data sources into a unified memory
+
+**Important**: Videos are immutable. To extend a video with new data, you must build a NEW video that contains both the old and new data.
 
 ```python
 from memvid import MemvidEncoder
 
-# Start with existing knowledge base
-encoder = MemvidEncoder.from_videos(["kb_v1.mp4"])
+# Method 1: Step-by-step workflow
+encoder = MemvidEncoder()
+
+# Load chunks from existing video(s)
+encoder.merge_from_video("kb_v1.mp4")
 
 # Add structured product data from CSV
 encoder.add_csv("products.csv", text_column="details")
 
-# Build comprehensive memory
+# Build NEW comprehensive memory with ALL data
 encoder.build_video("complete_kb.mp4", "complete_kb_index.json")
+
+# Method 2: Using convenience method (recommended)
+encoder = MemvidEncoder()
+encoder.add_text("Initial knowledge base content...")
+
+# Merge, add, and build in one call
+encoder.extend_and_rebuild(
+    output_video="complete_kb.mp4",
+    output_index="complete_kb_index.json",
+    video_files=["old_kb.mp4"],  # Videos to merge
+    csv_files=["new_data.csv"],  # CSVs to add
+    text_column="info"
+)
+
+# Method 3: Start from videos using classmethod
+encoder = MemvidEncoder.from_videos(["kb_v1.mp4", "kb_v2.mp4"])
+encoder.add_csv("products.csv", text_column="details")
+encoder.build_video("complete_kb.mp4", "complete_kb_index.json")
+
+# Now chat with the combined memory
+from memvid import MemvidChat
+chat = MemvidChat("complete_kb.mp4", "complete_kb_index.json")
+response = chat.chat("What products do we have?")  # Can access old + new data
 ```
+
+See `examples/merge_and_extend.py` for complete working examples.

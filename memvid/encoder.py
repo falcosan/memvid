@@ -61,39 +61,63 @@ class MemvidEncoder:
 
     def load_chunks_from_video(self, video_file: str, max_workers: int = 4, 
                                show_progress: bool = True) -> List[str]:
-        if not Path(video_file).exists():
+        """
+        Load chunks from an existing video file
+        
+        Args:
+            video_file: Path to video file to load chunks from
+            max_workers: Number of parallel workers for decoding
+            show_progress: Show progress bar
+            
+        Returns:
+            List of text chunks extracted from video
+        """
+        video_path = Path(video_file)
+        
+        if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_file}")
         
-        logger.info(f"Loading chunks from video: {video_file}")
-
-        decoded_frames = extract_all_frames_from_video(video_file, max_workers, show_progress)
+        # Extract and decode all frames
+        decoded_frames = extract_all_frames_from_video(str(video_path), max_workers, show_progress)
+        
+        if not decoded_frames:
+            logger.warning(f"No frames could be decoded from {video_path.name}")
+            return []
         
         chunks = []
-        successfully_parsed = 0
         for frame_num, decoded_data in decoded_frames:
+            if not decoded_data or not decoded_data.strip():
+                continue
+                
             try:
+                # Try to parse as JSON (standard format)
                 chunk_data = json.loads(decoded_data)
                 text = chunk_data.get("text", "")
-                if text:
+                if text and text.strip():
                     chunks.append(text)
-                    successfully_parsed += 1
-                else:
-                    logger.debug(f"Frame {frame_num} has empty text field")
-            except json.JSONDecodeError as e:
-                logger.debug(f"Frame {frame_num} is not JSON, using raw data: {e}")
-                if decoded_data and decoded_data.strip():
+            except json.JSONDecodeError:
+                # Not JSON - use raw decoded data as text
+                if decoded_data.strip():
                     chunks.append(decoded_data)
-                    successfully_parsed += 1
-            except Exception as e:
-                logger.warning(f"Unexpected error processing frame {frame_num}: {e}")
         
-        logger.info(f"Loaded {len(chunks)} chunks from {video_file} (parsed {successfully_parsed} frames)")
+        if not chunks:
+            logger.warning(f"No valid chunks extracted from {video_path.name}")
+        
         return chunks
     
     def merge_from_video(self, video_file: str, max_workers: int = 4, 
                          show_progress: bool = True):
+        """
+        Merge chunks from an existing video into this encoder
+        
+        Args:
+            video_file: Path to video file to merge chunks from
+            max_workers: Number of parallel workers for decoding
+            show_progress: Show progress bar
+        """
         chunks = self.load_chunks_from_video(video_file, max_workers, show_progress)
-        self.add_chunks(chunks)
+        if chunks:
+            self.add_chunks(chunks)
 
     def add_pdf(self, pdf_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP):
         """
@@ -190,25 +214,35 @@ class MemvidEncoder:
     def add_csv(self, csv_path: str, text_column: str, 
                 chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP,
                 delimiter: str = ',', encoding: str = 'utf-8'):
+        """
+        Add data from CSV file
+        
+        Args:
+            csv_path: Path to CSV file
+            text_column: Name of column containing text data
+            chunk_size: Target chunk size (for long entries)
+            overlap: Overlap between chunks (for long entries)
+            delimiter: CSV delimiter
+            encoding: File encoding
+        """
         import csv
         
         if not Path(csv_path).exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
-
+        
         with open(csv_path, 'r', encoding=encoding) as f:
             reader = csv.DictReader(f, delimiter=delimiter)
             
             if text_column not in reader.fieldnames:
-                raise ValueError(f"Column '{text_column}' not found in CSV. Available columns: {reader.fieldnames}")
+                available = ', '.join(reader.fieldnames) if reader.fieldnames else 'none'
+                raise ValueError(
+                    f"Column '{text_column}' not found in CSV. Available columns: {available}"
+                )
             
-            rows_processed = 0
             for row in reader:
                 text = row.get(text_column, '').strip()
                 if text:
                     self.add_text(text, chunk_size, overlap)
-                    rows_processed += 1
-            
-            logger.info(f"Added CSV content: {rows_processed} rows from {Path(csv_path).name}")
 
     def create_video_writer(self, output_path: str, codec: str = VIDEO_CODEC) -> cv2.VideoWriter:
         """
@@ -524,22 +558,25 @@ class MemvidEncoder:
                 else:
                     raise
 
-            # Build search index
+            # Build search index - create fresh index for this build
             if show_progress:
                 logger.info("Building search index...")
 
+            # IMPORTANT: Create a fresh IndexManager for each build to avoid accumulation
+            fresh_index_manager = IndexManager(self.config)
+            
             frame_numbers = list(range(len(self.chunks)))
-            self.index_manager.add_chunks(self.chunks, frame_numbers, show_progress)
+            fresh_index_manager.add_chunks(self.chunks, frame_numbers, show_progress)
 
             # Save index
-            self.index_manager.save(str(index_path.with_suffix('')))
+            fresh_index_manager.save(str(index_path.with_suffix('')))
 
             # Finalize statistics
             stats.update({
                 "total_chunks": len(self.chunks),
                 "video_file": str(output_path),
                 "index_file": str(index_path),
-                "index_stats": self.index_manager.get_stats()
+                "index_stats": fresh_index_manager.get_stats()
             })
 
             if show_progress:
@@ -623,6 +660,18 @@ class MemvidEncoder:
     @classmethod
     def from_videos(cls, video_files: List[str], config: Optional[Dict[str, Any]] = None,
                    max_workers: int = 4, show_progress: bool = True) -> 'MemvidEncoder':
+        """
+        Create encoder from existing video file(s)
+        
+        Args:
+            video_files: List of video file paths to merge
+            config: Optional configuration
+            max_workers: Number of parallel workers for decoding
+            show_progress: Show progress bar
+            
+        Returns:
+            MemvidEncoder instance with chunks loaded from videos
+        """
         encoder = cls(config)
         for video_file in video_files:
             encoder.merge_from_video(video_file, max_workers, show_progress)
