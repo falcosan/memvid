@@ -5,10 +5,10 @@ Configuration defaults and constants for Memvid
 from typing import Dict, Any
 
 # QR Code settings
-QR_VERSION = 35 # 1-40, higher = more data capacity https://www.qrcode.com/en/about/version.html
-QR_ERROR_CORRECTION = 'M'  # L, M, Q, H
-QR_BOX_SIZE = 5    # QR_BOX_SIZE * QR_VERSION dimensions (1 = 21 x 21, 20 = 97 x 97, 40 = 177×177) + QR_BORDER must be < frame height/width
-QR_BORDER = 3
+QR_VERSION = None # None = auto-fit, 1-40 = fixed version. Lower versions work better with OpenCV decoder
+QR_ERROR_CORRECTION = 'M'  # L, M, Q, H (M provides good balance of error correction and data capacity)
+QR_BOX_SIZE = 10   # Pixel size of each QR module (higher = larger, easier to scan)
+QR_BORDER = 4      # Size of border around QR code
 QR_FILL_COLOR = "black"
 QR_BACK_COLOR = "white"
 

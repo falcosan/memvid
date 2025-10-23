@@ -52,6 +52,12 @@ def encode_to_qr(data: str) -> Image.Image:
     qr.make(fit=True)
     
     img = qr.make_image(fill_color=config["fill_color"], back_color=config["back_color"])
+    
+    # Convert to RGB mode to ensure compatibility with OpenCV
+    # QR codes are created in '1' mode (1-bit) but need to be RGB for video encoding
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    
     return img
 
 
@@ -66,11 +72,17 @@ def decode_qr(image: np.ndarray) -> Optional[str]:
         Decoded string or None if decode fails
     """
     try:
+        # Convert to grayscale if needed for better detection
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        
         # Initialize OpenCV QR code detector
         detector = cv2.QRCodeDetector()
         
-        # Detect and decode
-        data, bbox, straight_qrcode = detector.detectAndDecode(image)
+        # Try to detect and decode - use grayscale for better results
+        data, bbox, straight_qrcode = detector.detectAndDecode(gray)
         
         if data:
             # Check if data was compressed
@@ -79,6 +91,16 @@ def decode_qr(image: np.ndarray) -> Optional[str]:
                 data = gzip.decompress(compressed_data).decode()
             
             return data
+        
+        # If grayscale failed, try with original image
+        if len(image.shape) == 3:
+            data, bbox, straight_qrcode = detector.detectAndDecode(image)
+            if data:
+                if data.startswith("GZ:"):
+                    compressed_data = base64.b64decode(data[3:])
+                    data = gzip.decompress(compressed_data).decode()
+                return data
+                
     except Exception as e:
         logger.warning(f"QR decode failed: {e}")
     return None

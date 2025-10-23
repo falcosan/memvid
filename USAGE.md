@@ -1,6 +1,7 @@
 # Memvid Usage Guide
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Installation](#installation)
 3. [Quick Start](#quick-start)
@@ -15,6 +16,7 @@
 ## Overview
 
 Memvid is a Python library that enables efficient storage and retrieval of text data using QR code videos. It combines:
+
 - **Text chunking** and semantic embeddings
 - **QR code generation** for data encoding
 - **Video creation** for compact storage
@@ -22,6 +24,7 @@ Memvid is a Python library that enables efficient storage and retrieval of text 
 - **Conversational AI** interface with context-aware memory
 
 ### Key Benefits
+
 - Store millions of text chunks in a single video file
 - Fast semantic search (< 2 seconds for 1M chunks)
 - No database required - just MP4 + index files
@@ -31,6 +34,7 @@ Memvid is a Python library that enables efficient storage and retrieval of text 
 ## Installation
 
 ### Prerequisites
+
 - Python 3.8 or higher
 - FFmpeg (for video encoding)
 - libzbar0 (for QR decoding)
@@ -38,23 +42,27 @@ Memvid is a Python library that enables efficient storage and retrieval of text 
 ### System Dependencies
 
 **macOS:**
+
 ```bash
 brew install ffmpeg zbar
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt-get update
 sudo apt-get install ffmpeg libzbar0
 ```
 
 **Windows:**
+
 - Install FFmpeg from https://ffmpeg.org/download.html
 - Install zbar from https://sourceforge.net/projects/zbar/
 
 ### Python Installation
 
 **Option 1: From source (recommended for development)**
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-repo/memvid.git
@@ -72,11 +80,13 @@ pip install -e .
 ```
 
 **Option 2: Direct installation**
+
 ```bash
 pip install memvid
 ```
 
 ### Verify Installation
+
 ```python
 import memvid
 print(memvid.__version__)
@@ -171,24 +181,27 @@ When you build a memory video, two files are created:
 **What it is:** A video file where each frame is a QR code containing encoded text data.
 
 **Structure:**
+
 - Each frame = 1 QR code
 - Each QR code = 1 text chunk + metadata
 - Frame rate = 30 FPS (configurable)
 - Resolution = 512x512 pixels (configurable)
 
 **Contents of each QR code:**
+
 ```json
 {
-    "id": 0,
-    "text": "The actual text chunk content...",
-    "metadata": {
-        "source": "optional source info",
-        "timestamp": "2024-01-01T00:00:00"
-    }
+  "id": 0,
+  "text": "The actual text chunk content...",
+  "metadata": {
+    "source": "optional source info",
+    "timestamp": "2024-01-01T00:00:00"
+  }
 }
 ```
 
 **Why video?**
+
 - Efficient compression (H.264/H.265)
 - Portable and shareable
 - Streamable over networks
@@ -199,34 +212,35 @@ When you build a memory video, two files are created:
 **What they are:** Search index files for fast retrieval.
 
 **memory_index.json structure:**
+
 ```json
 {
-    "metadata": [
-        {
-            "chunk_id": 0,
-            "text": "Text preview (first 200 chars)...",
-            "frame": 0,
-            "char_count": 250,
-            "word_count": 45
-        }
-    ],
-    "chunk_to_frame": {
-        "0": 0,
-        "1": 1
-    },
-    "frame_to_chunks": {
-        "0": [0],
-        "1": [1]
-    },
-    "config": {
-        "embedding": {
-            "model": "all-MiniLM-L6-v2",
-            "dimension": 384
-        },
-        "index": {
-            "type": "Flat"
-        }
+  "metadata": [
+    {
+      "chunk_id": 0,
+      "text": "Text preview (first 200 chars)...",
+      "frame": 0,
+      "char_count": 250,
+      "word_count": 45
     }
+  ],
+  "chunk_to_frame": {
+    "0": 0,
+    "1": 1
+  },
+  "frame_to_chunks": {
+    "0": [0],
+    "1": [1]
+  },
+  "config": {
+    "embedding": {
+      "model": "all-MiniLM-L6-v2",
+      "dimension": 384
+    },
+    "index": {
+      "type": "Flat"
+    }
+  }
 }
 ```
 
@@ -235,6 +249,7 @@ When you build a memory video, two files are created:
 ### File Size Comparison
 
 For 10,000 text chunks (average 200 chars each):
+
 - Raw text: ~2 MB
 - MP4 video: ~15-20 MB (with compression)
 - FAISS index: ~15 MB (384-dim vectors)
@@ -275,7 +290,7 @@ print(f"Total size: {stats['total_characters']} chars")
 
 # Build video
 build_stats = encoder.build_video(
-    "output.mp4", 
+    "output.mp4",
     "output_index.json",
     show_progress=True
 )
@@ -289,7 +304,7 @@ Handles search and text extraction from videos.
 from memvid import MemvidRetriever
 
 retriever = MemvidRetriever(
-    "video.mp4", 
+    "video.mp4",
     "index.json",
     config={
         "retrieval": {
@@ -363,6 +378,156 @@ stats = chat.get_stats()
 
 ## Advanced Usage
 
+### Merging Videos and Adding CSV Data
+
+Memvid supports combining existing videos and adding new data from CSV files. This is useful for:
+
+- Extending existing knowledge bases with new information
+- Merging multiple memory videos into one unified memory
+- Adding structured data from databases or spreadsheets
+
+**Important Concept**: Videos are immutable (read-only). To add new data to an existing video, you must create a NEW video that contains both the old and new data.
+
+#### Basic Workflow: Merge + Add + Build
+
+```python
+from memvid import MemvidEncoder
+
+# Step 1: Create encoder and load existing video
+encoder = MemvidEncoder()
+encoder.merge_from_video("existing_knowledge.mp4", show_progress=True)
+print(f"Loaded {len(encoder.chunks)} chunks from existing video")
+
+# Step 2: Add new data from CSV
+encoder.add_csv("new_products.csv", text_column="description")
+print(f"Total chunks: {len(encoder.chunks)}")
+
+# Step 3: Build NEW combined video
+encoder.build_video(
+    "combined_knowledge.mp4",
+    "combined_knowledge_index.json",
+    show_progress=True
+)
+
+# Step 4: Use the combined video with chat
+from memvid import MemvidChat
+chat = MemvidChat("combined_knowledge.mp4", "combined_knowledge_index.json")
+response = chat.chat("Tell me about the new products")  # Accesses old + new data
+```
+
+#### Convenience Method: extend_and_rebuild()
+
+For simpler workflows, use the `extend_and_rebuild()` method that combines merge, add, and build in one call:
+
+```python
+from memvid import MemvidEncoder
+
+encoder = MemvidEncoder()
+encoder.add_text("Initial knowledge base content...")
+
+# Merge videos + add CSVs + build in one call
+stats = encoder.extend_and_rebuild(
+    output_video="complete_kb.mp4",
+    output_index="complete_kb_index.json",
+    video_files=["old_kb_v1.mp4", "old_kb_v2.mp4"],  # Videos to merge
+    csv_files=["products.csv", "customers.csv"],      # CSVs to add
+    text_column="info",                                # CSV text column
+    codec="mp4v",                                      # Video codec
+    show_progress=True
+)
+
+print(f"Created combined video with {stats['total_chunks']} total chunks")
+```
+
+#### Merging Multiple Videos
+
+```python
+from memvid import MemvidEncoder
+
+# Method 1: Sequential merging
+encoder = MemvidEncoder()
+encoder.merge_from_video("kb_part1.mp4")
+encoder.merge_from_video("kb_part2.mp4")
+encoder.merge_from_video("kb_part3.mp4")
+encoder.build_video("kb_complete.mp4", "kb_complete_index.json")
+
+# Method 2: Using from_videos classmethod
+encoder = MemvidEncoder.from_videos([
+    "kb_part1.mp4",
+    "kb_part2.mp4",
+    "kb_part3.mp4"
+])
+encoder.build_video("kb_complete.mp4", "kb_complete_index.json")
+```
+
+#### Working with CSV Files
+
+```python
+from memvid import MemvidEncoder
+
+encoder = MemvidEncoder()
+
+# Add CSV with default settings
+encoder.add_csv("data.csv", text_column="description")
+
+# Add CSV with custom settings
+encoder.add_csv(
+    csv_path="large_data.csv",
+    text_column="content",
+    chunk_size=500,      # Chunk size for long entries
+    overlap=50,          # Overlap between chunks
+    delimiter=',',       # CSV delimiter
+    encoding='utf-8'     # File encoding
+)
+
+# Build video
+encoder.build_video("data_memory.mp4", "data_memory_index.json")
+```
+
+#### Complete Example: Multi-Source Knowledge Base
+
+```python
+from memvid import MemvidEncoder
+
+# Create encoder
+encoder = MemvidEncoder()
+
+# Add initial text data
+encoder.add_text("Company overview: Founded in 2020...")
+
+# Merge existing videos
+encoder.merge_from_video("2023_reports.mp4")
+encoder.merge_from_video("2024_q1_data.mp4")
+
+# Add CSV data
+encoder.add_csv("products.csv", text_column="description")
+encoder.add_csv("customers.csv", text_column="notes")
+
+# Add PDF documents
+encoder.add_pdf("annual_report.pdf")
+
+# Build comprehensive knowledge base
+stats = encoder.build_video(
+    "company_kb_complete.mp4",
+    "company_kb_complete_index.json",
+    codec="mp4v",
+    show_progress=True
+)
+
+print(f"✓ Built knowledge base with {stats['total_chunks']} chunks")
+print(f"  Video size: {stats['video_size_mb']:.2f} MB")
+
+# Now chat with the complete knowledge base
+from memvid import MemvidChat
+chat = MemvidChat("company_kb_complete.mp4", "company_kb_complete_index.json")
+
+# All data sources are accessible
+response = chat.chat("What products do we offer to enterprise customers?")
+print(response)
+```
+
+See `examples/merge_and_extend.py` for more complete working examples.
+
 ### Custom Chunking Strategies
 
 ```python
@@ -374,17 +539,17 @@ def custom_chunker(text, max_size=200):
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks = []
     current = ""
-    
+
     for sentence in sentences:
         if len(current) + len(sentence) > max_size and current:
             chunks.append(current.strip())
             current = sentence
         else:
             current += " " + sentence
-    
+
     if current:
         chunks.append(current.strip())
-    
+
     return chunks
 
 encoder = MemvidEncoder()
@@ -438,17 +603,17 @@ from pathlib import Path
 def process_directory(dir_path, output_prefix):
     """Process all text files in directory"""
     encoder = MemvidEncoder()
-    
+
     for file_path in Path(dir_path).glob("*.txt"):
         with open(file_path, 'r') as f:
             text = f.read()
             encoder.add_text(
-                text, 
+                text,
                 chunk_size=300,
                 overlap=50,
                 metadata={"source": file_path.name}
             )
-    
+
     # Build video
     encoder.build_video(
         f"{output_prefix}.mp4",
@@ -464,22 +629,22 @@ process_directory("documents/", "output/knowledge_base")
 ```python
 class MemvidFederation:
     """Search across multiple video memories"""
-    
+
     def __init__(self):
         self.retrievers = {}
-    
+
     def add_memory(self, name, video_file, index_file):
         self.retrievers[name] = MemvidRetriever(video_file, index_file)
-    
+
     def search_all(self, query, top_k=5):
         all_results = []
-        
+
         for name, retriever in self.retrievers.items():
             results = retriever.search_with_metadata(query, top_k)
             for r in results:
                 r['source'] = name
                 all_results.append(r)
-        
+
         # Sort by score
         all_results.sort(key=lambda x: x['score'], reverse=True)
         return all_results[:top_k]
@@ -568,6 +733,7 @@ retriever = MemvidRetriever(video_file, index_file, config={
 ### Common Issues
 
 #### 1. "huggingface/tokenizers" Warning
+
 ```bash
 # Set before running
 export TOKENIZERS_PARALLELISM=false
@@ -578,6 +744,7 @@ os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 ```
 
 #### 2. QR Decode Failures
+
 ```python
 # Increase QR code quality
 encoder = MemvidEncoder(config={
@@ -590,6 +757,7 @@ encoder = MemvidEncoder(config={
 ```
 
 #### 3. Video Codec Issues
+
 ```python
 # Try different codecs
 encoder = MemvidEncoder(config={
@@ -601,6 +769,7 @@ encoder = MemvidEncoder(config={
 ```
 
 #### 4. Memory Issues with Large Videos
+
 ```python
 # Enable streaming mode
 retriever = MemvidRetriever(video_file, index_file, config={
@@ -612,6 +781,7 @@ retriever = MemvidRetriever(video_file, index_file, config={
 ```
 
 #### 5. Slow Search Performance
+
 ```python
 # Debug performance
 stats = retriever.get_stats()
@@ -656,6 +826,7 @@ assert decoded == "test data"
 ## Example Projects
 
 ### 1. Personal Knowledge Base
+
 ```python
 # Build from markdown files
 from pathlib import Path
@@ -669,6 +840,7 @@ encoder.build_video("personal_kb.mp4", "personal_kb_index.json")
 ```
 
 ### 2. Documentation Search
+
 ```python
 # Create searchable docs
 encoder = MemvidEncoder()
@@ -678,11 +850,12 @@ encoder.build_video("docs.mp4", "docs_index.json")
 
 # Search with filtering
 retriever = MemvidRetriever("docs.mp4", "docs_index.json")
-api_results = [r for r in retriever.search_with_metadata("authentication") 
+api_results = [r for r in retriever.search_with_metadata("authentication")
                if r.get("metadata", {}).get("type") == "api"]
 ```
 
 ### 3. Research Paper Archive
+
 ```python
 # Archive papers with citations
 papers = load_papers()  # Your paper loader
