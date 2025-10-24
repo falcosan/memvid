@@ -212,7 +212,7 @@ class MemvidEncoder:
             raise
 
     def add_csv(self, csv_path: str, text_column: str, 
-                chunk_size: int = 800, overlap: int = 200,
+                chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP,
                 delimiter: str = ',', encoding: str = 'utf-8'):
         """
         Add data from CSV file
@@ -220,8 +220,8 @@ class MemvidEncoder:
         Args:
             csv_path: Path to CSV file
             text_column: Name of column containing text data
-            chunk_size: Target chunk size (default 800 chars, optimized for high recovery)
-            overlap: Overlap between chunks (default 200 chars for semantic continuity)
+            chunk_size: Target chunk size
+            overlap: Overlap between chunks
             delimiter: CSV delimiter
             encoding: File encoding
         """
