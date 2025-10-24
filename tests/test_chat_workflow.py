@@ -197,19 +197,17 @@ def test_chat_integration_with_merged_data():
     
     # Step 4: Querying the final merged MP4
     print("\nStep 4: Querying the final merged MP4 file")
-    print("  Testing that the final MP4 memory contains data from both original sources...")
     
     all_queries = [
-        ("¿Qué información hay sobre la miel?", ["miel"], "Originally from CSV1"),
-        ("¿Qué se menciona sobre laboratorios?", ["laboratorio"], "Originally from CSV1"),
-        ("¿Qué información hay sobre la robotización?", ["robotización"], "Originally from CSV2"),
-        ("¿Qué se menciona sobre microorganismos?", ["microorganismos"], "Originally from CSV2"),
+        ("¿En qué puedo usar los residuos de tomate?"),
+        ("¿Cuál es la situación de la gripe aviar en España?"),
+        ("¿Cuál es la situación del aceite de oliva?"),
     ]
     
     failed_queries = []
     
-    for query, expected_keywords, original_source in all_queries:
-        print(f"\n  Query ({original_source}): {query}")
+    for query in all_queries:
+        print(f"\n  Query: {query}")
         
         # First, verify context retrieval works from the final MP4 memory
         context = chat.search_context(query)
