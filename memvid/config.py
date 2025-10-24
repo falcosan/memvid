@@ -13,8 +13,8 @@ QR_FILL_COLOR = "black"
 QR_BACK_COLOR = "white"
 
 # Chunking settings
-DEFAULT_CHUNK_SIZE = 512
-DEFAULT_OVERLAP = 32
+DEFAULT_CHUNK_SIZE = 800
+DEFAULT_OVERLAP = 200
 
 # Codec Settings
 VIDEO_CODEC = 'h265'        # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
