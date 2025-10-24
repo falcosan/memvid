@@ -150,9 +150,9 @@ def test_chat_integration_with_merged_data():
     Complete workflow test with chat integration using OpenRouter DeepSeek.
     
     Steps:
-    1. Create initial video from articles_1.csv (contains: miel, laboratorio)
-    2. Merge and extend with articles_2.csv (contains: robotización, microorganismos)
-    3. Initialize chat with the FINAL MERGED MP4 ONLY
+    1. Create initial video from articles_1.csv
+    2. Merge and extend with articles_2.csv
+    3. Initialize chat with the final merged MP4 file
     4. Ask 4 questions ONLY to the final MP4 memory
     5. Verify the final MP4 contains searchable content from both original sources
     
@@ -178,7 +178,6 @@ def test_chat_integration_with_merged_data():
     print("\nStep 1: Creating initial video from articles_1.csv")
     initial_chunks = _create_video_from_csv(csv1_path, video1_path, index1_path)
     print(f"  Created video with {initial_chunks} chunks")
-    print(f"  CSV1 contains: miel, laboratorio, carne cultivada")
     
     # Step 2: Merge and extend with CSV2
     print("\nStep 2: Merging and extending with articles_2.csv")
@@ -189,7 +188,6 @@ def test_chat_integration_with_merged_data():
     print(f"  Merged {after_merge}/{initial_chunks} chunks ({recovery_rate:.1f}% recovery)")
     print(f"  Added {added_chunks} new chunks from CSV2")
     print(f"  Total final chunks: {final_chunks}")
-    print(f"  CSV2 contains: robotización, microorganismos")
 
     # Step 3: Initialize chat with final merged MP4 file
     print("\nStep 3: Initializing chat with final merged MP4 file")
