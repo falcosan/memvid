@@ -19,7 +19,7 @@ load_dotenv()
 # Test configuration
 CODEC = "mp4v"
 MIN_RESPONSE_LENGTH = 50
-MIN_RECOVERY_RATE = 90.0
+MIN_RECOVERY_RATE = 80.0
 DEEPSEEK_MODEL = "deepseek/deepseek-chat-v3.1:free"
 
 

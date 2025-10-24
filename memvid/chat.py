@@ -64,7 +64,7 @@ class MemvidChat:
             self.llm_provider = None
 
         # Chat configuration
-        self.context_chunks = self.config.get("chat", {}).get("context_chunks", 5)
+        self.context_chunks = self.config.get("chat", {}).get("context_chunks", 10)
         self.max_history = self.config.get("chat", {}).get("max_history", 10)
 
         # Chat history

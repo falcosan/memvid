@@ -212,7 +212,7 @@ class MemvidEncoder:
             raise
 
     def add_csv(self, csv_path: str, text_column: str, 
-                chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP,
+                chunk_size: int = 800, overlap: int = 200,
                 delimiter: str = ',', encoding: str = 'utf-8'):
         """
         Add data from CSV file
@@ -220,8 +220,8 @@ class MemvidEncoder:
         Args:
             csv_path: Path to CSV file
             text_column: Name of column containing text data
-            chunk_size: Target chunk size (for long entries)
-            overlap: Overlap between chunks (for long entries)
+            chunk_size: Target chunk size (default 800 chars, optimized for high recovery)
+            overlap: Overlap between chunks (default 200 chars for semantic continuity)
             delimiter: CSV delimiter
             encoding: File encoding
         """
@@ -242,7 +242,10 @@ class MemvidEncoder:
             for row in reader:
                 text = row.get(text_column, '').strip()
                 if text:
-                    self.add_text(text, chunk_size, overlap)
+                    if len(text) <= chunk_size:
+                        self.add_chunks([text])
+                    else:
+                        self.add_text(text, chunk_size, overlap)
 
     def create_video_writer(self, output_path: str, codec: str = VIDEO_CODEC) -> cv2.VideoWriter:
         """

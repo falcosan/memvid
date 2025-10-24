@@ -65,7 +65,7 @@ class MemvidRetriever:
     
     def search(self, query: str, top_k: int = 5) -> List[str]:
         """
-        Search for relevant chunks using semantic search
+        Search for relevant chunks using hybrid semantic + keyword search with fallback
         
         Args:
             query: Search query
@@ -76,10 +76,63 @@ class MemvidRetriever:
         """
         start_time = time.time()
         
-        # Semantic search in index
-        search_results = self.index_manager.search(query, top_k)
+        search_pool_size = min(top_k * 5, 50)
+        search_results = self.index_manager.search(query, search_pool_size)
         
-        # Extract unique frame numbers
+        query_lower = query.lower()
+        query_words = [w.strip('¿?.,!¡') for w in query_lower.split() if len(w.strip('¿?.,!¡')) > 3]
+        
+        scored_results = []
+        for chunk_id, distance, metadata in search_results:
+            text = metadata.get("text", "").lower()
+            
+            keyword_score = 0
+            for word in query_words:
+                if word in text:
+                    keyword_score += 1
+                    if text.count(word) > 1:
+                        keyword_score += 0.5
+            
+            if keyword_score > 0:
+                boost_factor = 1.0 + (keyword_score * 0.5)
+                adjusted_distance = distance / boost_factor
+            else:
+                adjusted_distance = distance
+            
+            scored_results.append((chunk_id, adjusted_distance, metadata, keyword_score))
+        
+        scored_results.sort(key=lambda x: x[1])
+        
+        best_keyword_score = max((r[3] for r in scored_results[:top_k]), default=0)
+        
+        if best_keyword_score <= 1.5 and len(query_words) > 0:
+            all_metadata = self.index_manager.metadata
+            keyword_matches = []
+            
+            for chunk_id, metadata in enumerate(all_metadata):
+                text = metadata.get("text", "").lower()
+                keyword_score = sum(1 for word in query_words if word in text)
+                
+                if keyword_score >= 1:
+                    distance = 999.0
+                    for _, orig_dist, orig_meta, _ in scored_results:
+                        if orig_meta.get("id") == chunk_id:
+                            distance = orig_dist
+                            break
+                    
+                    keyword_matches.append((chunk_id, distance, metadata, keyword_score))
+            
+            keyword_matches.sort(key=lambda x: (-x[3], x[1]))
+            
+            seen_ids = {r[0] for r in scored_results[:top_k]}
+            added = 0
+            for match in keyword_matches:
+                if match[0] not in seen_ids and added < top_k // 3:
+                    scored_results.insert(0, match)
+                    added += 1
+        
+        search_results = [(r[0], r[1], r[2]) for r in scored_results[:top_k]]
+        
         frame_numbers = list(set(result[2]["frame"] for result in search_results))
         
         # Decode frames in parallel
