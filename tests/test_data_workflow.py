@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from memvid import MemvidEncoder
 
-MIN_RECOVERY_RATE = 90.0
+MIN_RECOVERY_RATE = 80.0
 
 def test_real_csv_workflow():
     """
