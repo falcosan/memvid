@@ -3,38 +3,29 @@
 
 import os
 import json
+import importlib.util
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Iterator
+from typing import List, Dict, Any, Optional, Iterator, cast
 
 from memvid.config import DEFAULT_LLM_MODELS
 
 # Optional imports with availability checking
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
+OPENAI_AVAILABLE = importlib.util.find_spec("openai") is not None
+if not OPENAI_AVAILABLE:
     print("Warning: OpenAI library not available. OpenAI provider will be disabled.")
 
-try:
-    import google as genai
-    GOOGLE_AVAILABLE = True
-except ImportError:
-    GOOGLE_AVAILABLE = False
+GOOGLE_AVAILABLE = importlib.util.find_spec("google") is not None
+if not GOOGLE_AVAILABLE:
     print("Warning: Google Generative AI library not available. Google provider will be disabled.")
 
-try:
-    import anthropic
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
+# Check for anthropic library availability
+ANTHROPIC_AVAILABLE = importlib.util.find_spec("anthropic") is not None
+if not ANTHROPIC_AVAILABLE:
     print("Warning: Anthropic library not available. Anthropic provider will be disabled.")
 
-try:
-    import requests
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
+# Check for requests library availability
+OLLAMA_AVAILABLE = importlib.util.find_spec("requests") is not None
+if not OLLAMA_AVAILABLE:
     print("Warning: Requests library not available. Ollama provider will be disabled.")
 
 class LLMProvider(ABC):
@@ -53,16 +44,21 @@ class LLMProvider(ABC):
 class OpenAIProvider(LLMProvider):
     """OpenAI provider implementation"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
-        self.client = OpenAI(api_key=api_key)
+    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: Optional[str] = None):
+        if not OPENAI_AVAILABLE:
+            raise ImportError("OpenAI library not available")
+        from openai import OpenAI as OpenAIClient
+        self.client = OpenAIClient(api_key=api_key, base_url=base_url)
         self.model = model
 
     def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
         """Send chat messages to OpenAI"""
         try:
+            # Type cast for OpenAI API compatibility
+            formatted_messages = cast(Any, messages)
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=formatted_messages,
                 stream=stream,
                 **kwargs
             )
@@ -70,7 +66,9 @@ class OpenAIProvider(LLMProvider):
             if stream:
                 return self._stream_response(response)
             else:
-                return response.choices[0].message.content
+                # Type assertion for non-stream response
+                non_stream_response = cast(Any, response)
+                return non_stream_response.choices[0].message.content
 
         except Exception as e:
             print(f"OpenAI API error: {e}")
@@ -90,7 +88,12 @@ class GoogleProvider(LLMProvider):
     """Google provider implementation based on your working code"""
 
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
-        self.llm_client = genai.Client(api_key=api_key)
+        if not GOOGLE_AVAILABLE:
+            raise ImportError("Google Generative AI library not available")
+        # Import locally and cast to Any since google library lacks proper type stubs
+        import google as genai_local
+        client_class = cast(Any, genai_local).Client
+        self.llm_client = client_class(api_key=api_key)
         self.model_name = model
         self.api_key = api_key
 
@@ -204,6 +207,8 @@ class AnthropicProvider(LLMProvider):
     """Anthropic Claude provider implementation based on your working code"""
 
     def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022"):
+        if not ANTHROPIC_AVAILABLE:
+            raise ImportError("Anthropic library not available")
         import anthropic
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
@@ -226,6 +231,9 @@ class AnthropicProvider(LLMProvider):
             temperature = kwargs.get('temperature', 0.7)
             top_p = kwargs.get('top_p', 0.9)
             stop_sequences = kwargs.get('stop_sequences', None)
+            
+            # Type cast for Anthropic API compatibility
+            formatted_messages = cast(Any, anthropic_messages)
 
             if stream:
                 response = self.client.messages.create(
@@ -234,8 +242,8 @@ class AnthropicProvider(LLMProvider):
                     temperature=temperature,
                     top_p=top_p,
                     system=system_prompt,
-                    messages=anthropic_messages,
-                    stop_sequences=stop_sequences,
+                    messages=formatted_messages,
+                    stop_sequences=stop_sequences if stop_sequences else [],
                     stream=True
                 )
                 return self._stream_response(response)
@@ -246,10 +254,16 @@ class AnthropicProvider(LLMProvider):
                     temperature=temperature,
                     top_p=top_p,
                     system=system_prompt,
-                    messages=anthropic_messages,
-                    stop_sequences=stop_sequences
+                    messages=formatted_messages,
+                    stop_sequences=stop_sequences if stop_sequences else []
                 )
-                return response.content[0].text
+                # Extract text from first content block if it's a TextBlock
+                first_block = response.content[0]
+                if hasattr(first_block, 'text'):
+                    text_block = cast(Any, first_block)
+                    return text_block.text
+                else:
+                    return str(first_block)
 
         except Exception as e:
             print(f"Anthropic API error: {e}")
@@ -308,7 +322,9 @@ class AnthropicProvider(LLMProvider):
                 break
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, api_key: str = None, model: str = "gemma3:1b", base_url: str = "http://localhost:11434"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gemma3:1b", base_url: str = "http://localhost:11434"):
+        if not OLLAMA_AVAILABLE:
+            raise ImportError("Requests library not available")
         self.base_url = base_url
         self.model = model
         self.api_key = api_key
@@ -332,7 +348,8 @@ class OllamaProvider(LLMProvider):
             if stream:
                 return self._stream_request(payload)
             else:
-                response = requests.post(
+                import requests as req
+                response = req.post(
                     f"{self.base_url}/api/generate",
                     json=payload,
                     headers={"Content-Type": "application/json"}
@@ -364,7 +381,8 @@ class OllamaProvider(LLMProvider):
 
     def _stream_request(self, payload: Dict[str, Any]) -> Iterator[str]:
         try:
-            response = requests.post(
+            import requests as req
+            response = req.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
@@ -452,8 +470,10 @@ class LLMClient:
 
     def _get_default_model(self, provider: str) -> str:
         """Get default model for each provider"""
-
-        return DEFAULT_LLM_MODELS.get(provider)
+        model = DEFAULT_LLM_MODELS.get(provider)
+        if model is None:
+            raise ValueError(f"No default model configured for provider: {provider}")
+        return model
 
     def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
         """Send chat messages using the configured provider"""
@@ -492,6 +512,6 @@ class LLMClient:
         return results
 
 # Convenience function for backwards compatibility
-def create_llm_client(backend: str = 'google', model: str = None, api_key: str = None, base_url: str = None) -> LLMClient:
+def create_llm_client(backend: str = 'google', model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None) -> LLMClient:
     """Create an LLM client with the specified backend"""
     return LLMClient(provider=backend, model=model, api_key=api_key, base_url=base_url)

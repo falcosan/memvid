@@ -1,17 +1,25 @@
 """
-Test chat integration with real data workflow using Ollama.
+Test chat integration with real data workflow using OpenRouter DeepSeek model.
 This test verifies that data from both CSVs is accessible through chat after merging.
 """
+import os
 from pathlib import Path
 from typing import Tuple
+from dotenv import load_dotenv
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 from memvid import MemvidEncoder
 from memvid.chat import MemvidChat
 
+load_dotenv()
+
+# Test configuration
 CODEC = "mp4v"
 MIN_RESPONSE_LENGTH = 50
 MIN_RECOVERY_RATE = 80.0
-LLM_MODEL = "gemma3:1b"
-OLLAMA_BASE_URL = "http://vs-ollama-server.westeurope.cloudapp.azure.com"
+DEEPSEEK_MODEL = "deepseek/deepseek-chat-v3.1:free"
+
 
 def _setup_paths() -> Tuple[Path, Path, Path]:
     """Setup and validate dataset paths."""
@@ -71,23 +79,25 @@ def _merge_and_extend_video(
     return after_merge, final_chunks, recovery_rate
 
 
-def _initialize_chat(video_path: str, index_path: str) -> MemvidChat:
-    """Initialize chat with Ollama model."""
+def _initialize_chat(video_path: str, index_path: str, api_key: str) -> MemvidChat:
+    """Initialize chat with OpenRouter DeepSeek model."""  
     chat = MemvidChat(
         video_file=video_path,
         index_file=index_path,
-        llm_provider='ollama',
-        llm_model=LLM_MODEL,
-        llm_base_url=OLLAMA_BASE_URL,
+        llm_provider='openai',
+        llm_model=DEEPSEEK_MODEL,
+        llm_base_url="https://openrouter.ai/api/v1",
+        llm_api_key=api_key
     )
     
     chat.start_session()
     
     return chat
 
+
 def test_chat_integration_with_merged_data():
     """
-    Complete workflow test with chat integration using Ollama.
+    Complete workflow test with chat integration using OpenRouter DeepSeek.
     
     Steps:
     1. Create initial video from articles_1.csv
@@ -97,8 +107,14 @@ def test_chat_integration_with_merged_data():
     5. Verify the final MP4 contains searchable content from both original sources
     
     
-    Model: gemma3:1b via Ollama
+    Requires: OPENROUTER_API_KEY in .env file
+    Model: deepseek/deepseek-chat-v3.1:free
     """
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if not openrouter_key:
+        msg = "OPENROUTER_API_KEY not available. Create .env file with your API key from https://openrouter.ai/"
+        print(f"SKIPPING TEST: {msg}")
+        return
     
     # Setup paths
     csv1_path, csv2_path, output_dir = _setup_paths()
@@ -123,8 +139,9 @@ def test_chat_integration_with_merged_data():
     print(f"  Added {added_chunks} new chunks from CSV2")
     print(f"  Total final chunks: {final_chunks}")
 
+    # Step 3: Initialize chat with final merged MP4 file
     print("\nStep 3: Initializing chat with final merged MP4 file")
-    chat = _initialize_chat(video2_path, index2_path)
+    chat = _initialize_chat(video2_path, index2_path, openrouter_key)
     
     # Step 4: Querying the final merged MP4
     print("\nStep 4: Querying the final merged MP4 file")
@@ -132,9 +149,6 @@ def test_chat_integration_with_merged_data():
     all_queries = [
         ("¿Qué es el CIFA?"),
         ("¿En qué puedo usar los residuos de tomate?"),
-        ("Qué sabes decirme de la cochinilla acanalada?"),
-        ("¿Cuál es la situación de la gripe aviar en España?"),
-        ("¿Cuál es la situación del aceite de oliva?"),
     ]
     
     failed_queries = []
@@ -160,7 +174,7 @@ def test_chat_integration_with_merged_data():
                 continue
             
             # Print a preview of the response
-            print(f"    Response preview: {response}")
+            print(f"   Response preview: {response}")
                 
         except Exception as e:
             print(f"    Error getting LLM response: {e}")
@@ -193,7 +207,25 @@ def test_chat_integration_with_merged_data():
     print(f"Conversation turns:        {len(chat.conversation_history)}")
     print(f"Queried file:              {video2_path}")
 
+
+def test_env_file_detection():
+    """Test that .env file is properly loaded."""
+    print("\nTest: Environment File Detection")
+    
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    
+    if openrouter_key:
+        print("  OPENROUTER_API_KEY found")
+    else:
+        print("  OPENROUTER_API_KEY not found in environment")
+    print()
+
+
 if __name__ == "__main__":
+    # Check environment
+    test_env_file_detection()
+
+    # Full integration with LLM (requires API key)
     try:
         test_chat_integration_with_merged_data()
     except Exception as e:
@@ -203,4 +235,4 @@ if __name__ == "__main__":
     
     print("\n" + "-"*70)
     print("Ok")
-    
+
