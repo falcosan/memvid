@@ -37,8 +37,6 @@ def chat_with_memory(
         - 'help': Show commands
         - 'exit' or 'quit': End session
     """
-    # Set tokenizers parallelism to avoid warning
-    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     
     # Set default session directory
     if session_dir is None:
@@ -154,7 +152,6 @@ def quick_chat(video_file: str, index_file: str, query: str, api_key: Optional[s
         >>> response = quick_chat(f"knowledge.{VIDEO_FILE_TYPE}", "knowledge_index.json", "What is quantum computing?")
         >>> print(response)
     """
-    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     
     chat = MemvidChat(video_file, index_file, llm_api_key=api_key)
     return chat.chat(query)

@@ -5,13 +5,16 @@ import os
 import json
 import importlib.util
 from abc import ABC, abstractmethod
+from memvid.config import DEFAULT_LLM_MODELS
 from typing import List, Dict, Any, Optional, Iterator, cast
 
-from memvid.config import DEFAULT_LLM_MODELS
 
 # Optional imports with availability checking
 OPENAI_AVAILABLE = importlib.util.find_spec("openai") is not None
-if not OPENAI_AVAILABLE:
+if OPENAI_AVAILABLE:
+    # Set tokenizers parallelism to avoid warning
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+else:
     print("Warning: OpenAI library not available. OpenAI provider will be disabled.")
 
 GOOGLE_AVAILABLE = importlib.util.find_spec("google") is not None
@@ -430,7 +433,7 @@ class LLMClient:
         if api_key is None:
             api_key = self._get_api_key_from_env(provider)
 
-        if not api_key and provider != 'ollama':
+        if not api_key and provider not in ['ollama']:
             available_keys = self._get_env_key_names(provider)
             raise ValueError(f"No API key found for {provider}. Please set one of: {available_keys}")
 

@@ -6,9 +6,6 @@ import os
 from pathlib import Path
 from typing import Tuple
 from dotenv import load_dotenv
-
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
 from memvid import MemvidEncoder
 from memvid.chat import MemvidChat
 
