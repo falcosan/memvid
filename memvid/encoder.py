@@ -11,18 +11,14 @@ import numpy as np
 from .utils import encode_to_qr, chunk_text, extract_all_frames_from_video
 from .index import IndexManager
 from .config import get_default_config, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, VIDEO_CODEC, get_codec_parameters
-from .docker_manager import DockerManager
 
 logger = logging.getLogger(__name__)
 
 class MemvidEncoder:
-    def __init__(self, config: Optional[Dict[str, Any]] = None, enable_docker=True):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or get_default_config()
         self.chunks = []
         self.index_manager = IndexManager(self.config)
-        self.dcker_mngr = DockerManager() if enable_docker else None
-        if self.dcker_mngr and not self.dcker_mngr.is_available():
-            logger.info("Docker backend not available - using native encoding only")
 
     def add_chunks(self, chunks: List[str]):
         self.chunks.extend(chunks)
@@ -168,7 +164,7 @@ class MemvidEncoder:
             chunk_data = {"id": frame_num, "text": chunk, "frame": frame_num}
             qr_image = encode_to_qr(json.dumps(chunk_data))
             frame_path = frames_dir / f"frame_{frame_num:06d}.png"
-            qr_image.save(frame_path)
+            qr_image.save(frame_path) # type: ignore
         logger.info(f"Generated {len(self.chunks)} QR frames in {frames_dir}")
         return frames_dir
 
@@ -262,42 +258,27 @@ class MemvidEncoder:
             writer.release()
 
     def _encode_with_ffmpeg(self, frames_dir: Path, output_file: Path, codec: str,
-                           show_progress: bool = True, auto_build_docker: bool = True) -> Dict[str, Any]:
+                           show_progress: bool = True) -> Dict[str, Any]:
         from .config import codec_parameters
         cmd = self._build_ffmpeg_command(frames_dir, output_file, codec)
-        if self.dcker_mngr and self.dcker_mngr.should_use_docker(codec):
-            if show_progress:
-                logger.info(f"Encoding with Docker FFmpeg using {codec} codec...")
-            result = self.dcker_mngr.execute_ffmpeg(
-                cmd, frames_dir.parent, output_file, auto_build=auto_build_docker
-            )
-            frame_count = len(list(frames_dir.glob("frame_*.png")))
-            result.update({
-                "codec": codec,
-                "total_frames": frame_count,
-                "fps": codec_parameters[codec]["video_fps"],
-                "duration_seconds": frame_count / codec_parameters[codec]["video_fps"]
-            })
-            return result
-        else:
-            if show_progress:
-                logger.info(f"Encoding with native FFmpeg using {codec} codec...")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"Native FFmpeg failed: {result.stderr}")
-            frame_count = len(list(frames_dir.glob("frame_*.png")))
-            return {
-                "backend": "native_ffmpeg",
-                "codec": codec,
-                "total_frames": frame_count,
-                "video_size_mb": output_file.stat().st_size / (1024 * 1024) if output_file.exists() else 0,
-                "fps": codec_parameters[codec]["video_fps"],
-                "duration_seconds": frame_count / codec_parameters[codec]["video_fps"]
-            }
+        
+        if show_progress:
+            logger.info(f"Encoding with native FFmpeg using {codec} codec...")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"Native FFmpeg failed: {result.stderr}")
+        frame_count = len(list(frames_dir.glob("frame_*.png")))
+        return {
+            "backend": "native_ffmpeg",
+            "codec": codec,
+            "total_frames": frame_count,
+            "video_size_mb": output_file.stat().st_size / (1024 * 1024) if output_file.exists() else 0,
+            "fps": codec_parameters[codec]["video_fps"],
+            "duration_seconds": frame_count / codec_parameters[codec]["video_fps"]
+        }
 
     def append_to_video(self, existing_video: str, existing_index: str, output_file: str, output_index: str,
-                       codec: str = VIDEO_CODEC, show_progress: bool = True,
-                       auto_build_docker: bool = True) -> Dict[str, Any]:
+                       codec: str = VIDEO_CODEC, show_progress: bool = True) -> Dict[str, Any]:
         if not self.chunks:
             raise ValueError("No chunks to append. Use add_chunks() or merge_from_video() first.")
         output_path = Path(output_file)
@@ -316,7 +297,7 @@ class MemvidEncoder:
                 if codec == "mp4v":
                     stats = self._encode_with_opencv(frames_dir, output_path, codec, show_progress)
                 else:
-                    stats = self._encode_with_ffmpeg(frames_dir, output_path, codec, show_progress, auto_build_docker)
+                    stats = self._encode_with_ffmpeg(frames_dir, output_path, codec, show_progress)
             except Exception as e:
                 if codec != "mp4v":
                     warnings.warn(f"{codec} encoding failed: {e}. Falling back to MP4V.", UserWarning)
@@ -338,8 +319,7 @@ class MemvidEncoder:
             return stats
 
     def build_video(self, output_file: str, index_file: str,
-                   codec: str = VIDEO_CODEC, show_progress: bool = True,
-                   auto_build_docker: bool = True, allow_fallback: bool = True) -> Dict[str, Any]:
+                   codec: str = VIDEO_CODEC, show_progress: bool = True, allow_fallback: bool = True) -> Dict[str, Any]:
         if not self.chunks:
             raise ValueError("No chunks to encode. Use add_chunks() first.")
         output_path = Path(output_file)
@@ -354,7 +334,7 @@ class MemvidEncoder:
                 if codec == "mp4v":
                     stats = self._encode_with_opencv(frames_dir, output_path, codec, show_progress)
                 else:
-                    stats = self._encode_with_ffmpeg(frames_dir, output_path, codec, show_progress, auto_build_docker)
+                    stats = self._encode_with_ffmpeg(frames_dir, output_path, codec, show_progress)
             except Exception as e:
                 if allow_fallback and codec != "mp4v":
                     warnings.warn(f"{codec} encoding failed: {e}. Falling back to MP4V.", UserWarning)
@@ -385,21 +365,12 @@ class MemvidEncoder:
         logger.info("Cleared all chunks")
 
     def get_stats(self) -> Dict[str, Any]:
-        docker_status = "disabled"
-        if self.dcker_mngr:
-            docker_status = "available" if self.dcker_mngr.is_available() else "unavailable"
         return {
             "total_chunks": len(self.chunks),
             "total_characters": sum(len(chunk) for chunk in self.chunks),
             "avg_chunk_size": np.mean([len(chunk) for chunk in self.chunks]) if self.chunks else 0,
-            "docker_status": docker_status,
             "config": self.config
         }
-
-    def get_docker_status(self) -> str:
-        if not self.dcker_mngr:
-            return "Docker backend disabled"
-        return self.dcker_mngr.get_status_message()
 
     @classmethod
     def from_file(cls, file_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP,

@@ -129,7 +129,6 @@ def test_real_csv_workflow():
     print(f"Content size:            {len(all_text):,} characters")
     print(f"Keywords found:          {', '.join(found_keywords)}")
     print("="*120)
-    print(f"Output files saved to: tests/output/")
     print(f"   Initial video:  {Path(video1_path).name} ({Path(video1_path).stat().st_size / 1024:.1f} KB)")
     print(f"   Final video:    {Path(video2_path).name} ({Path(video2_path).stat().st_size / 1024:.1f} KB)")
     print("="*120)
