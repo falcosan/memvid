@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from tqdm import tqdm
 import cv2
 import numpy as np
-from .utils import encode_to_qr, qr_to_frame, chunk_text, extract_all_frames_from_video
+from .utils import encode_to_qr, chunk_text, extract_all_frames_from_video
 from .index import IndexManager
 from .config import get_default_config, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, VIDEO_CODEC, get_codec_parameters
 from .docker_manager import DockerManager
@@ -16,7 +16,6 @@ from .docker_manager import DockerManager
 logger = logging.getLogger(__name__)
 
 class MemvidEncoder:
-
     def __init__(self, config: Optional[Dict[str, Any]] = None, enable_docker=True):
         self.config = config or get_default_config()
         self.chunks = []
@@ -127,7 +126,7 @@ class MemvidEncoder:
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
         with open(csv_path, 'r', encoding=encoding) as f:
             reader = csv.DictReader(f, delimiter=delimiter)
-            if text_column not in reader.fieldnames:
+            if not reader.fieldnames or text_column not in reader.fieldnames:
                 available = ', '.join(reader.fieldnames) if reader.fieldnames else 'none'
                 raise ValueError(
                     f"Column '{text_column}' not found in CSV. Available columns: {available}"
@@ -151,7 +150,7 @@ class MemvidEncoder:
             "mjpg": "MJPG"
         }
         opencv_codec = opencv_codec_map.get(codec, codec)
-        fourcc = cv2.VideoWriter_fourcc(*opencv_codec)
+        fourcc = cv2.VideoWriter.fourcc(*opencv_codec)
         return cv2.VideoWriter(
             output_path,
             fourcc,
@@ -181,7 +180,7 @@ class MemvidEncoder:
             "av1": "libaom-av1", "vp9": "libvpx-vp9"
         }
         ffmpeg_codec = ffmpeg_codec_map.get(codec, codec)
-        expected_ext = codec_config["video_file_type"]
+        expected_ext = str(codec_config["video_file_type"])
         if not str(output_file).endswith(expected_ext):
             output_file = output_file.with_suffix(expected_ext)
         cmd = [
@@ -204,8 +203,6 @@ class MemvidEncoder:
         import os
         thread_count = min(os.cpu_count() or 4, 16)
         cmd.extend(['-threads', str(thread_count)])
-        print(f"🎬 FFMPEG ENCODING SUMMARY:")
-        print(f" 🎥 Codec Config:")
         print(f" • codec: {codec}")
         print(f" • file_type: {codec_config.get('video_file_type', 'unknown')}")
         print(f" • fps: {codec_config.get('fps', 'default')}")
@@ -316,7 +313,6 @@ class MemvidEncoder:
             temp_path = Path(temp_dir)
             frames_dir = self._generate_qr_frames(temp_path, show_progress, start_frame)
             try:
-                from .config import codec_parameters
                 if codec == "mp4v":
                     stats = self._encode_with_opencv(frames_dir, output_path, codec, show_progress)
                 else:
@@ -327,8 +323,6 @@ class MemvidEncoder:
                     stats = self._encode_with_opencv(frames_dir, output_path, "mp4v", show_progress)
                 else:
                     raise
-            new_frame_numbers = list(range(start_frame, start_frame + len(self.chunks)))
-            appended_chunk_ids = existing_index_manager.add_chunks(self.chunks, new_frame_numbers, show_progress)
             existing_index_manager.save(str(index_path.with_suffix('')))
             stats.update({
                 "total_chunks": len(existing_index_manager.metadata),
@@ -357,7 +351,6 @@ class MemvidEncoder:
             temp_path = Path(temp_dir)
             frames_dir = self._generate_qr_frames(temp_path, show_progress)
             try:
-                from .config import codec_parameters
                 if codec == "mp4v":
                     stats = self._encode_with_opencv(frames_dir, output_path, codec, show_progress)
                 else:

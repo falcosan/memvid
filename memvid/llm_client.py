@@ -392,7 +392,7 @@ class LLMClient:
         'ollama': OllamaProvider,
     }
 
-    def __init__(self, provider: str = 'google', model: str = None, api_key: str = None, base_url: str = None):
+    def __init__(self, provider: str = 'google', model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.provider_name = provider.lower()
 
         if self.provider_name not in self.PROVIDERS:

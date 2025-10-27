@@ -3,7 +3,6 @@ MemvidChat - Enhanced conversational interface with multi-provider LLM support
 """
 
 import json
-import os
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -24,11 +23,11 @@ class MemvidChat:
             video_file: str,
             index_file: str,
             llm_provider: str = 'google',
-            llm_model: str = None,
-            llm_api_key: str = None,
-            llm_base_url: str = None,
+            llm_model: Optional[str] = None,
+            llm_api_key: Optional[str] = None,
+            llm_base_url: Optional[str] = None,
             config: Optional[Dict] = None,
-            retriever_kwargs: Dict = None
+            retriever_kwargs: Optional[Dict] = None
     ):
         """
         Initialize MemvidChat with flexible LLM provider support
@@ -74,7 +73,7 @@ class MemvidChat:
         self.session_id = None
         self.system_prompt = None
 
-    def start_session(self, system_prompt: str = None, session_id: str = None):
+    def start_session(self, system_prompt: Optional[str] = None, session_id: Optional[str] = None):
         """Start a new chat session with optional system prompt"""
         self.conversation_history = []
         self.session_id = session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -172,6 +171,9 @@ User question: {message}"""
 
     def _handle_streaming_response(self, messages: List[Dict[str, str]]) -> str:
         """Handle streaming response from LLM"""
+        if not self.llm_client:
+            return "Error: LLM client not available for streaming."
+            
         print("Assistant: ", end="", flush=True)
         full_response = ""
 
@@ -347,8 +349,8 @@ User question: {message}"""
 
 
 # Backwards compatibility aliases
-def chat_with_memory(video_file: str, index_file: str, api_key: str = None,
-                     provider: str = 'google', model: str = None):
+def chat_with_memory(video_file: str, index_file: str, api_key: Optional[str] = None,
+                     provider: str = 'google', model: Optional[str] = None):
     """
     Quick chat function for backwards compatibility
 
@@ -371,7 +373,7 @@ def chat_with_memory(video_file: str, index_file: str, api_key: str = None,
 
 
 def quick_chat(video_file: str, index_file: str, message: str,
-               provider: str = 'google', api_key: str = None) -> str:
+               provider: str = 'google', api_key: Optional[str] = None) -> str:
     """
     Quick single message chat
 

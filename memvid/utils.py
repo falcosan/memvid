@@ -2,26 +2,25 @@
 Shared utility functions for Memvid
 """
 
-import io
 import json
-import qrcode
+from qrcode import QRCode, ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 import cv2
 import numpy as np
 from PIL import Image
 from typing import List, Tuple, Optional, Dict, Any
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import logging
 from tqdm import tqdm
 import base64
 import gzip
-
-from .config import get_default_config, codec_parameters
+import binascii
+from .config import get_default_config
 
 logger = logging.getLogger(__name__)
 
 
-def encode_to_qr(data: str) -> Image.Image:
+def encode_to_qr(data: str):
     """
     Encode data to QR code image
     
@@ -41,9 +40,16 @@ def encode_to_qr(data: str) -> Image.Image:
         data = base64.b64encode(compressed).decode()
         data = "GZ:" + data  # Prefix to indicate compression
     
-    qr = qrcode.QRCode(
+    error_correction = {
+        'L': ERROR_CORRECT_L,
+        'M': ERROR_CORRECT_M,
+        'Q': ERROR_CORRECT_Q,
+        'H': ERROR_CORRECT_H
+    }
+    
+    qr = QRCode(
         version=config["version"],
-        error_correction=getattr(qrcode.constants, f"ERROR_CORRECT_{config['error_correction']}"),
+        error_correction=error_correction[config['error_correction']],
         box_size=config["box_size"],
         border=config["border"],
     )
@@ -55,8 +61,8 @@ def encode_to_qr(data: str) -> Image.Image:
     
     # Convert to RGB mode to ensure compatibility with OpenCV
     # QR codes are created in '1' mode (1-bit) but need to be RGB for video encoding
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
+    if img.get_image().mode != 'RGB':
+        img = img.get_image().convert('RGB')
     
     return img
 
@@ -107,7 +113,7 @@ def decode_qr(image: np.ndarray) -> Optional[str]:
                     decompressed_bytes = gzip.decompress(compressed_bytes)
                     # Decode to string
                     return decompressed_bytes.decode('utf-8')
-                except (base64.binascii.Error, gzip.BadGzipFile, UnicodeDecodeError) as e:
+                except (binascii.Error, gzip.BadGzipFile, UnicodeDecodeError) as e:
                     logger.debug(f"Failed to decompress QR data: {e}")
                     return None
             
@@ -348,11 +354,14 @@ def batch_extract_and_decode(video_path: str, frame_numbers: List[int],
     # Extract frames
     frames = batch_extract_frames(video_path, frame_numbers)
     
+    # Filter out None frames to match parallel_decode_qr's expected type
+    valid_frames = [(num, frame) for num, frame in frames if frame is not None]
+    
     # Decode in parallel
     if show_progress:
-        frames = tqdm(frames, desc="Decoding QR frames")
+        valid_frames = list(tqdm(valid_frames, desc="Decoding QR frames"))
     
-    decoded = parallel_decode_qr(frames, max_workers)
+    decoded = parallel_decode_qr(valid_frames, max_workers)
     
     # Build result dict
     result = {}

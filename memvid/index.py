@@ -5,8 +5,6 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any, Tuple, Optional
 import logging
 from pathlib import Path
-import pickle
-from tqdm import tqdm
 from .config import get_default_config
 
 logger = logging.getLogger(__name__)
@@ -17,12 +15,12 @@ class IndexManager:
         self.config = config or get_default_config()
         self.embedding_model = SentenceTransformer(self.config["embedding"]["model"])
         self.dimension = self.config["embedding"]["dimension"]
-        self.index = self._create_index()
+        self.index: faiss.IndexIDMap = self._create_index()
         self.metadata = []
         self.chunk_to_frame = {}
         self.frame_to_chunks = {}
 
-    def _create_index(self) -> faiss.Index:
+    def _create_index(self) -> faiss.IndexIDMap:
         index_type = self.config["index"]["type"]
         if index_type == "Flat":
             index = faiss.IndexFlatL2(self.dimension)
@@ -154,42 +152,45 @@ class IndexManager:
         start_id = len(self.metadata)
         chunk_ids = list(range(start_id, start_id + len(chunks)))
         try:
-            underlying_index = self.index.index
+            # Get the underlying index from IndexIDMap
+            if isinstance(self.index, faiss.IndexIDMap):
+                underlying_index = self.index.index
+            else:
+                underlying_index = self.index
+            
             if isinstance(underlying_index, faiss.IndexIVFFlat):
                 nlist = underlying_index.nlist
                 if not underlying_index.is_trained:
-                    logger.info(f"🧠 FAISS IVF index requires training (nlist={nlist})")
-                    logger.info(f"📊 Available embeddings: {len(embeddings)}")
+                    logger.info(f"FAISS IVF index requires training (nlist={nlist})")
+                    logger.info(f"Available embeddings: {len(embeddings)}")
                     if len(embeddings) < nlist:
-                        logger.warning(f"❌ Insufficient training data: need at least {nlist} embeddings, got {len(embeddings)}")
-                        logger.warning(f"💡 IVF indexes require more data. For single documents, consider using 'Flat' index type in config.")
-                        logger.info(f"🔄 Auto-switching to IndexFlatL2 for reliable operation")
                         self.index = faiss.IndexIDMap(faiss.IndexFlatL2(self.dimension))
-                        logger.info(f"✅ Switched to Flat index (exact search, slower but works with any dataset size)")
                     else:
                         recommended_min = nlist * 10
                         if len(embeddings) < recommended_min:
-                            logger.warning(f"⚠️ Suboptimal training data: {len(embeddings)} embeddings (recommended: {recommended_min}+)")
-                            logger.warning(f"💡 Consider using larger dataset or 'Flat' index for better results")
-                        logger.info(f"🏋️ Training FAISS IVF index...")
+                            logger.warning(f"Suboptimal training data: {len(embeddings)} embeddings (recommended: {recommended_min}+)")
+                            logger.warning("Consider using larger dataset or 'Flat' index for better results")
+                        logger.info("🏋️ Training FAISS IVF index...")
                         logger.info(f" - Training vectors: {len(embeddings)}")
                         logger.info(f" - Clusters (nlist): {nlist}")
                         logger.info(f" - Expected memory: ~{(len(embeddings) * self.dimension * 4) / 1024 / 1024:.1f} MB")
                         training_data = embeddings[:min(50000, len(embeddings))]
+                        # Train the index with the training data
                         underlying_index.train(training_data)
-                        logger.info("✅ FAISS IVF training completed successfully")
+                        logger.info("FAISS IVF training completed successfully")
                 else:
-                    logger.info(f"✅ FAISS IVF index already trained (nlist={nlist})")
+                    logger.info(f"FAISS IVF index already trained (nlist={nlist})")
             else:
-                logger.info(f"ℹ️ Using {type(underlying_index).__name__} (no training required)")
+                logger.info(f"Using {type(underlying_index).__name__} (no training required)")
         except Exception as e:
-            logger.error(f"❌ Index training failed with error: {e}")
-            logger.error(f"🔍 Error type: {type(e).__name__}")
-            logger.info(f"🔄 Falling back to IndexFlatL2 for reliability")
-            logger.info(f"💡 To avoid this fallback, use 'Flat' index type in config for small datasets")
+            logger.error(f"Index training failed with error: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.info("Falling back to IndexFlatL2 for reliability")
+            logger.info("To avoid this fallback, use 'Flat' index type in config for small datasets")
             self.index = faiss.IndexIDMap(faiss.IndexFlatL2(self.dimension))
-            logger.info(f"✅ Fallback complete - using exact search")
+            logger.info("Fallback complete - using exact search")
         try:
+            # Add embeddings to index with their corresponding IDs
             self.index.add_with_ids(embeddings, np.array(chunk_ids, dtype=np.int64))
         except Exception as e:
             logger.error(f"Failed to add embeddings to FAISS index: {e}")
@@ -215,6 +216,7 @@ class IndexManager:
     def search(self, query: str, top_k: int = 5) -> List[Tuple[int, float, Dict[str, Any]]]:
         query_embedding = self.embedding_model.encode([query])
         query_embedding = np.array(query_embedding).astype('float32')
+        # Perform search with explicit parameter names
         distances, indices = self.index.search(query_embedding, top_k)
         results = []
         for dist, idx in zip(distances[0], indices[0]):
@@ -233,22 +235,28 @@ class IndexManager:
         return None
 
     def save(self, path: str):
-        path = Path(path)
-        faiss.write_index(self.index, str(path.with_suffix('.faiss')))
+        path_obj = Path(path)
+        faiss.write_index(self.index, str(path_obj.with_suffix('.faiss')))
         data = {
             "metadata": self.metadata,
             "chunk_to_frame": self.chunk_to_frame,
             "frame_to_chunks": self.frame_to_chunks,
             "config": self.config
         }
-        with open(path.with_suffix('.json'), 'w') as f:
+        with open(path_obj.with_suffix('.json'), 'w') as f:
             json.dump(data, f, indent=2)
         logger.info(f"Saved index to {path}")
 
     def load(self, path: str):
-        path = Path(path)
-        self.index = faiss.read_index(str(path.with_suffix('.faiss')))
-        with open(path.with_suffix('.json'), 'r') as f:
+        path_obj = Path(path)
+        loaded_index = faiss.read_index(str(path_obj.with_suffix('.faiss')))
+        # Ensure the loaded index is an IndexIDMap
+        if isinstance(loaded_index, faiss.IndexIDMap):
+            self.index = loaded_index
+        else:
+            # Wrap in IndexIDMap if it's not already
+            self.index = faiss.IndexIDMap(loaded_index)
+        with open(path_obj.with_suffix('.json'), 'r') as f:
             data = json.load(f)
         self.metadata = data["metadata"]
         self.chunk_to_frame = {int(k): v for k, v in data["chunk_to_frame"].items()}

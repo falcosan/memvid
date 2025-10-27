@@ -14,7 +14,6 @@ def chat_with_memory(
     api_key: Optional[str] = None,
     llm_model: Optional[str] = None,
     show_stats: bool = True,
-    export_on_exit: bool = True,
     session_dir: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None
 ):
@@ -27,7 +26,6 @@ def chat_with_memory(
         api_key: OpenAI API key (or set OPENAI_API_KEY env var)
         llm_model: LLM model to use (default: gpt-3.5-turbo)
         show_stats: Show memory stats on startup
-        export_on_exit: Auto-export conversation on exit
         session_dir: Directory to save session files (default: "output")
         config: Optional configuration
         
@@ -92,7 +90,6 @@ def chat_with_memory(
                 print("\nCommands:")
                 print("  search <query> - Show raw search results")
                 print("  stats         - Show system statistics")
-                print("  export        - Save conversation")
                 print("  clear         - Clear conversation history")
                 print("  help          - Show this help")
                 print("  exit/quit     - End session")
@@ -104,13 +101,7 @@ def chat_with_memory(
                 print(f"Cache size: {stats['retriever_stats']['cache_size']}")
                 print(f"Video frames: {stats['retriever_stats']['total_frames']}")
                 continue
-                
-            elif lower_input == 'export':
-                export_file = os.path.join(session_dir, f"memvid_session_{chat.session_id}.json")
-                chat.export_session(export_file)
-                print(f"Exported to: {export_file}")
-                continue
-                
+            
             elif lower_input == 'clear':
                 chat.reset_session()
                 chat.start_session()
@@ -124,8 +115,6 @@ def chat_with_memory(
                 results = chat.search_context(query, top_k=5)
                 elapsed = time.time() - start_time
                 print(f"Found {len(results)} results in {elapsed:.3f}s:\n")
-                for i, result in enumerate(results[:3]):
-                    print(f"{i+1}. [Score: {result['score']:.3f}] {result['text'][:100]}...")
                 continue
             
             # Regular chat
@@ -143,12 +132,6 @@ def chat_with_memory(
         except Exception as e:
             print(f"\nError: {e}")
             continue
-    
-    # Export on exit if requested
-    if export_on_exit and chat.get_history():
-        export_file = os.path.join(session_dir, f"memvid_session_{chat.session_id}.json")
-        chat.export_session(export_file)
-        print(f"\nSession saved to: {export_file}")
     
     print("Goodbye!")
 
