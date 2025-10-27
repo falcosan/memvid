@@ -92,7 +92,7 @@ class MemvidChat:
 
     def _get_default_system_prompt(self) -> str:
         """Get the default system prompt"""
-        return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in Spanish."""
+        return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in the same language as the question."""
 
     def chat(self, message: str, stream: bool = False, max_context_tokens: int = 2000) -> str:
         """

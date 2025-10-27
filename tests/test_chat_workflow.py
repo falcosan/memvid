@@ -132,6 +132,7 @@ def test_chat_integration_with_merged_data():
     all_queries = [
         ("¿Qué es el CIFA?"),
         ("¿En qué puedo usar los residuos de tomate?"),
+        ("Qué sabes decirme de la cochinilla acanalada?"),
         ("¿Cuál es la situación de la gripe aviar en España?"),
         ("¿Cuál es la situación del aceite de oliva?"),
     ]

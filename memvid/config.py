@@ -19,10 +19,10 @@ DEFAULT_OVERLAP = 200
 # Codec Settings
 VIDEO_CODEC = 'h265'        # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
 MP4V_PARAMETERS= {"video_file_type": "mp4",
-                  "video_fps": 15,
-                  "frame_height": 512,      # Increased for better QR quality
-                  "frame_width": 512,       # Increased for better QR quality
-                  "video_crf": 4,           # Constant Rate Factor (0-51, lower = better quality, 18 is visually lossless)
+                  "video_fps": 60,
+                  "frame_height": 2056,      # Increased for better QR quality
+                  "frame_width": 2056,       # Increased for better QR quality
+                  "video_crf": 0,           # Constant Rate Factor (0-51, lower = better quality)
                   "video_preset": "medium",  # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
                   "video_profile": "high", # baseline, main, high (baseline for max compatibility)
                   "pix_fmt": "yuv420p",
