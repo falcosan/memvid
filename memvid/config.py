@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 # QR Code settings
 QR_VERSION = None # None = auto-fit, 1-40 = fixed version. Lower versions work better with OpenCV decoder
-QR_ERROR_CORRECTION = 'L'  # L, M, Q, H (H = highest error correction for complex text)
+QR_ERROR_CORRECTION = 'M'  # L, M, Q, H (H = highest error correction for complex text)
 QR_BOX_SIZE = 10   # Pixel size of each QR module (higher = larger, easier to scan)
 QR_BORDER = 4      # Size of border around QR code
 QR_FILL_COLOR = "black"
