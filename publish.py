@@ -5,10 +5,26 @@ import sys
 import subprocess
 import shutil
 import re
+import importlib.util
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv() 
+
+def check_dependencies():
+    """Check if required publishing tools are installed."""
+    missing = []
+    if importlib.util.find_spec("build") is None:
+        missing.append("build")
+    
+    if importlib.util.find_spec("twine") is None:
+        missing.append("twine")
+    
+    if missing:
+        print(f"✗ Missing required packages: {', '.join(missing)}")
+        print("\nInstall them with:")
+        print(f"uv pip install {' '.join(missing)}")
+        sys.exit(1)
 
 def run(cmd):
     if subprocess.run(cmd, shell=isinstance(cmd, str)).returncode != 0:
@@ -31,6 +47,8 @@ def clean():
     print("✓ Cleaned build artifacts")
 
 def main():
+    check_dependencies()
+    
     if len(sys.argv) < 2:
         print("Usage: python publish.py <version> [--test]")
         print("Example: python publish.py 1.0.5")
