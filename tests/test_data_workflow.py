@@ -109,15 +109,15 @@ def test_real_csv_workflow():
     all_text = " ".join(loaded_chunks).lower()
     
     # Check for keywords from both CSVs
-    keywords = ["laboratorio", "miel", "sequía", "señalar", "microorganismos", "nutricionales"]
+    keywords = ["laboratorio", "tomate", "oliva"]
     found_keywords = [kw for kw in keywords if kw in all_text]
     print(f"   Found {len(found_keywords)}/{len(keywords)} keywords from articles")
     
     # Verify content size and presence
     assert len(all_text) > 1000, "Combined text seems too short"
-    assert len(found_keywords) >= 4, \
-        f"Too few keywords found ({len(found_keywords)}/6). Expected content may not be present."
-    
+    assert len(found_keywords) >= len(keywords), \
+        f"Too few keywords found ({len(found_keywords)}/{len(keywords)}). Expected content may not be present."
+
     # Summary
     print("\n" + "="*120)
     print("Test Summary:")
