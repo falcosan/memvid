@@ -3,7 +3,6 @@ MemvidChat - Enhanced conversational interface with multi-provider LLM support
 """
 
 import json
-import os
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -24,10 +23,11 @@ class MemvidChat:
             video_file: str,
             index_file: str,
             llm_provider: str = 'google',
-            llm_model: str = None,
-            llm_api_key: str = None,
+            llm_model: Optional[str] = None,
+            llm_api_key: Optional[str] = None,
+            llm_base_url: Optional[str] = None,
             config: Optional[Dict] = None,
-            retriever_kwargs: Dict = None
+            retriever_kwargs: Optional[Dict] = None
     ):
         """
         Initialize MemvidChat with flexible LLM provider support
@@ -54,7 +54,8 @@ class MemvidChat:
             self.llm_client = LLMClient(
                 provider=llm_provider,
                 model=llm_model,
-                api_key=llm_api_key
+                api_key=llm_api_key,
+                base_url=llm_base_url
             )
             self.llm_provider = llm_provider
             logger.info(f"✓ Initialized {llm_provider} LLM client")
@@ -72,7 +73,7 @@ class MemvidChat:
         self.session_id = None
         self.system_prompt = None
 
-    def start_session(self, system_prompt: str = None, session_id: str = None):
+    def start_session(self, system_prompt: Optional[str] = None, session_id: Optional[str] = None):
         """Start a new chat session with optional system prompt"""
         self.conversation_history = []
         self.session_id = session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -91,15 +92,7 @@ class MemvidChat:
 
     def _get_default_system_prompt(self) -> str:
         """Get the default system prompt"""
-        return """You are a helpful AI assistant with access to a knowledge base stored in video format. 
-
-When answering questions:
-1. Use the provided context from the knowledge base when relevant
-2. Be clear about what information comes from the knowledge base vs. your general knowledge
-3. If the context doesn't contain enough information, say so clearly
-4. Provide helpful, accurate, and concise responses
-
-The context will be provided with each query based on semantic similarity to the user's question."""
+        return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in the same language as the question."""
 
     def chat(self, message: str, stream: bool = False, max_context_tokens: int = 2000) -> str:
         """
@@ -163,10 +156,6 @@ The context will be provided with each query based on semantic similarity to the
         if self.system_prompt:
             messages.append({"role": "system", "content": self.system_prompt})
 
-        # Add conversation history (last few exchanges to stay within limits)
-        history_to_include = self.conversation_history[-6:]  # Last 3 exchanges
-        messages.extend(history_to_include)
-
         # Prepare the current message with context
         if context.strip():
             enhanced_message = f"""Context from knowledge base:
@@ -182,6 +171,9 @@ User question: {message}"""
 
     def _handle_streaming_response(self, messages: List[Dict[str, str]]) -> str:
         """Handle streaming response from LLM"""
+        if not self.llm_client:
+            return "Error: LLM client not available for streaming."
+            
         print("Assistant: ", end="", flush=True)
         full_response = ""
 
@@ -357,8 +349,8 @@ User question: {message}"""
 
 
 # Backwards compatibility aliases
-def chat_with_memory(video_file: str, index_file: str, api_key: str = None,
-                     provider: str = 'google', model: str = None):
+def chat_with_memory(video_file: str, index_file: str, api_key: Optional[str] = None,
+                     provider: str = 'google', model: Optional[str] = None):
     """
     Quick chat function for backwards compatibility
 
@@ -381,7 +373,7 @@ def chat_with_memory(video_file: str, index_file: str, api_key: str = None,
 
 
 def quick_chat(video_file: str, index_file: str, message: str,
-               provider: str = 'google', api_key: str = None) -> str:
+               provider: str = 'google', api_key: Optional[str] = None) -> str:
     """
     Quick single message chat
 

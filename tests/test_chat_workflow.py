@@ -1,27 +1,17 @@
 """
-Test chat integration with real data workflow using OpenRouter DeepSeek model.
+Test chat integration with real data workflow using Ollama.
 This test verifies that data from both CSVs is accessible through chat after merging.
 """
-import os
 from pathlib import Path
-from typing import List, Tuple
-
-from dotenv import load_dotenv
-
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+from typing import Tuple
 from memvid import MemvidEncoder
 from memvid.chat import MemvidChat
 
-load_dotenv()
-
-
-# Test configuration
 CODEC = "mp4v"
 MIN_RESPONSE_LENGTH = 50
 MIN_RECOVERY_RATE = 80.0
-DEEPSEEK_MODEL = "deepseek/deepseek-chat-v3.1:free"
-
+LLM_MODEL = "gemma3:1b"
+OLLAMA_BASE_URL = "http://vs-ollama-server.westeurope.cloudapp.azure.com"
 
 def _setup_paths() -> Tuple[Path, Path, Path]:
     """Setup and validate dataset paths."""
@@ -47,7 +37,7 @@ def _create_video_from_csv(csv_path: Path, video_path: str, index_path: str) -> 
     
     assert chunk_count > 0, f"No chunks added from {csv_path.name}"
     
-    encoder.build_video(video_path, index_path, codec=CODEC, show_progress=False)
+    encoder.build_video(video_path, index_path, codec=CODEC)
     assert Path(video_path).exists(), f"Video not created: {video_path}"
     
     return chunk_count
@@ -62,7 +52,7 @@ def _merge_and_extend_video(
 ) -> Tuple[int, int, float]:
     """Merge video and extend with new CSV data."""
     encoder = MemvidEncoder()
-    encoder.merge_from_video(source_video, show_progress=False)
+    encoder.merge_from_video(source_video)
     
     after_merge = len(encoder.chunks)
     recovery_rate = (after_merge / initial_chunks * 100) if initial_chunks > 0 else 0
@@ -72,82 +62,32 @@ def _merge_and_extend_video(
     
     encoder.add_csv(str(csv_path), text_column="text")
     final_chunks = len(encoder.chunks)
-    added_chunks = final_chunks - after_merge
     
     assert final_chunks > after_merge, f"No chunks added from {csv_path.name}"
     
-    encoder.build_video(output_video, output_index, codec=CODEC, show_progress=False)
+    encoder.build_video(output_video, output_index, codec=CODEC)
     assert Path(output_video).exists(), f"Final video not created: {output_video}"
     
     return after_merge, final_chunks, recovery_rate
 
 
-def _initialize_chat(video_path: str, index_path: str, api_key: str) -> MemvidChat:
-    """Initialize chat with OpenRouter DeepSeek model."""
-    try:
-        from openai import OpenAI
-    except ImportError as e:
-        error_msg = f"OpenAI library not available: {e}"
-        print(f"SKIPPING: {error_msg}")
-        raise ImportError(error_msg)
-    
-    openrouter_client = OpenAI(
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1"
-    )
-    
+def _initialize_chat(video_path: str, index_path: str) -> MemvidChat:
+    """Initialize chat with Ollama model."""
     chat = MemvidChat(
         video_file=video_path,
         index_file=index_path,
-        llm_provider='openai',
-        llm_model=DEEPSEEK_MODEL,
-        llm_api_key=api_key
+        llm_provider='ollama',
+        llm_model=LLM_MODEL,
+        llm_base_url=OLLAMA_BASE_URL,
     )
     
-    chat.llm_client.provider.client = openrouter_client
-    chat.llm_client.provider.model = DEEPSEEK_MODEL
     chat.start_session()
     
     return chat
 
-
-def _execute_queries(chat: MemvidChat, queries: List[str], print_responses: bool = True) -> List[str]:
-    """Execute multiple queries and return responses."""
-    responses = []
-    for i, query in enumerate(queries, 1):
-        try:
-            print(f"\n  Query {i}: {query}")
-            response = chat.chat(query, stream=False)
-            
-            if response is None:
-                raise ValueError(f"Received None response for query: '{query}'")
-            if len(response) <= MIN_RESPONSE_LENGTH:
-                raise ValueError(f"Response too short for query '{query}': {len(response)} chars")
-            
-            if print_responses:
-                print(f"  Response: {response}")
-            
-            responses.append(response)
-        except Exception as e:
-            print(f"\n  Error executing query '{query}': {e}")
-            raise
-    return responses
-
-
-def _verify_keywords(context_chunks: List[str], expected_keywords: List[str]) -> List[str]:
-    """Verify expected keywords are present in context chunks."""
-    all_context = " ".join(context_chunks).lower()
-    found_keywords = [kw for kw in expected_keywords if kw in all_context]
-    
-    assert len(found_keywords) >= 1, \
-        f"Insufficient keywords found. Expected: {expected_keywords}, Found: {found_keywords}"
-    
-    return found_keywords
-
-
 def test_chat_integration_with_merged_data():
     """
-    Complete workflow test with chat integration using OpenRouter DeepSeek.
+    Complete workflow test with chat integration using Ollama.
     
     Steps:
     1. Create initial video from articles_1.csv
@@ -157,14 +97,8 @@ def test_chat_integration_with_merged_data():
     5. Verify the final MP4 contains searchable content from both original sources
     
     
-    Requires: OPENROUTER_API_KEY in .env file
-    Model: deepseek/deepseek-chat-v3.1:free
+    Model: gemma3:1b via Ollama
     """
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    if not openrouter_key:
-        msg = "OPENROUTER_API_KEY not available. Create .env file with your API key from https://openrouter.ai/"
-        print(f"SKIPPING TEST: {msg}")
-        return
     
     # Setup paths
     csv1_path, csv2_path, output_dir = _setup_paths()
@@ -189,15 +123,16 @@ def test_chat_integration_with_merged_data():
     print(f"  Added {added_chunks} new chunks from CSV2")
     print(f"  Total final chunks: {final_chunks}")
 
-    # Step 3: Initialize chat with final merged MP4 file
     print("\nStep 3: Initializing chat with final merged MP4 file")
-    chat = _initialize_chat(video2_path, index2_path, openrouter_key)
+    chat = _initialize_chat(video2_path, index2_path)
     
     # Step 4: Querying the final merged MP4
     print("\nStep 4: Querying the final merged MP4 file")
     
     all_queries = [
+        ("¿Qué es el CIFA?"),
         ("¿En qué puedo usar los residuos de tomate?"),
+        ("Qué sabes decirme de la cochinilla acanalada?"),
         ("¿Cuál es la situación de la gripe aviar en España?"),
         ("¿Cuál es la situación del aceite de oliva?"),
     ]
@@ -211,19 +146,16 @@ def test_chat_integration_with_merged_data():
         context = chat.search_context(query)
         
         if not context:
-            print(f"    No context found")
+            print("    No context found")
             failed_queries.append((query, "No context retrieved"))
             continue
-        
-        
-        
         
         # Now ask the LLM
         try:
             response = chat.chat(query, stream=False)
             
             if not response or len(response) < MIN_RESPONSE_LENGTH:
-                print(f"    Response too short or empty")
+                print("    Response too short or empty")
                 failed_queries.append((query, "Response too short"))
                 continue
             
@@ -240,7 +172,7 @@ def test_chat_integration_with_merged_data():
     print(f"{'='*120}")
     
     if failed_queries:
-        print(f"  Failed queries:")
+        print("  Failed queries:")
         for query, reason in failed_queries:
             print(f"    - '{query}': {reason}")
     
@@ -262,26 +194,7 @@ def test_chat_integration_with_merged_data():
     print(f"Conversation turns:        {len(chat.conversation_history)}")
     print(f"Queried file:              {video2_path}")
 
-
-def test_env_file_detection():
-    """Test that .env file is properly loaded."""
-    print("\nTest: Environment File Detection")
-    
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    
-    if openrouter_key:
-        print(f"  OPENROUTER_API_KEY found")
-    else:
-        print("  OPENROUTER_API_KEY not found in environment")
-    print()
-
-
 if __name__ == "__main__":
-    
-    # Check environment
-    test_env_file_detection()
-
-    # Full integration with LLM (requires API key)
     try:
         test_chat_integration_with_merged_data()
     except Exception as e:
