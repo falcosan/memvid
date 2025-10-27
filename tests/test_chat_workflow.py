@@ -2,9 +2,8 @@
 Test chat integration with real data workflow using Ollama.
 This test verifies that data from both CSVs is accessible through chat after merging.
 """
-import os
 from pathlib import Path
-from typing import List, Tuple
+from typing import Tuple
 from memvid import MemvidEncoder
 from memvid.chat import MemvidChat
 
@@ -38,7 +37,7 @@ def _create_video_from_csv(csv_path: Path, video_path: str, index_path: str) -> 
     
     assert chunk_count > 0, f"No chunks added from {csv_path.name}"
     
-    encoder.build_video(video_path, index_path, codec=CODEC, show_progress=False)
+    encoder.build_video(video_path, index_path, codec=CODEC)
     assert Path(video_path).exists(), f"Video not created: {video_path}"
     
     return chunk_count
@@ -53,7 +52,7 @@ def _merge_and_extend_video(
 ) -> Tuple[int, int, float]:
     """Merge video and extend with new CSV data."""
     encoder = MemvidEncoder()
-    encoder.merge_from_video(source_video, show_progress=False)
+    encoder.merge_from_video(source_video)
     
     after_merge = len(encoder.chunks)
     recovery_rate = (after_merge / initial_chunks * 100) if initial_chunks > 0 else 0
@@ -63,17 +62,16 @@ def _merge_and_extend_video(
     
     encoder.add_csv(str(csv_path), text_column="text")
     final_chunks = len(encoder.chunks)
-    added_chunks = final_chunks - after_merge
     
     assert final_chunks > after_merge, f"No chunks added from {csv_path.name}"
     
-    encoder.build_video(output_video, output_index, codec=CODEC, show_progress=False)
+    encoder.build_video(output_video, output_index, codec=CODEC)
     assert Path(output_video).exists(), f"Final video not created: {output_video}"
     
     return after_merge, final_chunks, recovery_rate
 
 
-def _initialize_chat(video_path: str, index_path: str, api_key: str = None) -> MemvidChat:
+def _initialize_chat(video_path: str, index_path: str) -> MemvidChat:
     """Initialize chat with Ollama model."""
     chat = MemvidChat(
         video_file=video_path,
@@ -86,41 +84,6 @@ def _initialize_chat(video_path: str, index_path: str, api_key: str = None) -> M
     chat.start_session()
     
     return chat
-
-
-def _execute_queries(chat: MemvidChat, queries: List[str], print_responses: bool = True) -> List[str]:
-    """Execute multiple queries and return responses."""
-    responses = []
-    for i, query in enumerate(queries, 1):
-        try:
-            print(f"\n  Query {i}: {query}")
-            response = chat.chat(query, stream=False)
-            
-            if response is None:
-                raise ValueError(f"Received None response for query: '{query}'")
-            if len(response) <= MIN_RESPONSE_LENGTH:
-                raise ValueError(f"Response too short for query '{query}': {len(response)} chars")
-            
-            if print_responses:
-                print(f"  Response: {response}")
-            
-            responses.append(response)
-        except Exception as e:
-            print(f"\n  Error executing query '{query}': {e}")
-            raise
-    return responses
-
-
-def _verify_keywords(context_chunks: List[str], expected_keywords: List[str]) -> List[str]:
-    """Verify expected keywords are present in context chunks."""
-    all_context = " ".join(context_chunks).lower()
-    found_keywords = [kw for kw in expected_keywords if kw in all_context]
-    
-    assert len(found_keywords) >= 1, \
-        f"Insufficient keywords found. Expected: {expected_keywords}, Found: {found_keywords}"
-    
-    return found_keywords
-
 
 def test_chat_integration_with_merged_data():
     """
@@ -167,6 +130,7 @@ def test_chat_integration_with_merged_data():
     print("\nStep 4: Querying the final merged MP4 file")
     
     all_queries = [
+        ("¿Qué es el CIFA?"),
         ("¿En qué puedo usar los residuos de tomate?"),
         ("¿Cuál es la situación de la gripe aviar en España?"),
         ("¿Cuál es la situación del aceite de oliva?"),
@@ -181,7 +145,7 @@ def test_chat_integration_with_merged_data():
         context = chat.search_context(query)
         
         if not context:
-            print(f"    No context found")
+            print("    No context found")
             failed_queries.append((query, "No context retrieved"))
             continue
         
@@ -190,7 +154,7 @@ def test_chat_integration_with_merged_data():
             response = chat.chat(query, stream=False)
             
             if not response or len(response) < MIN_RESPONSE_LENGTH:
-                print(f"    Response too short or empty")
+                print("    Response too short or empty")
                 failed_queries.append((query, "Response too short"))
                 continue
             
@@ -207,7 +171,7 @@ def test_chat_integration_with_merged_data():
     print(f"{'='*120}")
     
     if failed_queries:
-        print(f"  Failed queries:")
+        print("  Failed queries:")
         for query, reason in failed_queries:
             print(f"    - '{query}': {reason}")
     
