@@ -26,6 +26,7 @@ class MemvidChat:
             llm_provider: str = 'google',
             llm_model: str = None,
             llm_api_key: str = None,
+            llm_base_url: str = None,
             config: Optional[Dict] = None,
             retriever_kwargs: Dict = None
     ):
@@ -54,7 +55,8 @@ class MemvidChat:
             self.llm_client = LLMClient(
                 provider=llm_provider,
                 model=llm_model,
-                api_key=llm_api_key
+                api_key=llm_api_key,
+                base_url=llm_base_url
             )
             self.llm_provider = llm_provider
             logger.info(f"✓ Initialized {llm_provider} LLM client")

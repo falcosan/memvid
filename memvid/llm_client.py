@@ -30,6 +30,13 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
     print("Warning: Anthropic library not available. Anthropic provider will be disabled.")
 
+try:
+    import requests
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    print("Warning: Requests library not available. Ollama provider will be disabled.")
+
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
 
@@ -300,6 +307,81 @@ class AnthropicProvider(LLMProvider):
             elif chunk.type == "message_stop":
                 break
 
+class OllamaProvider(LLMProvider):
+    def __init__(self, api_key: str = None, model: str = "gemma3:1b", base_url: str = "http://localhost:11434"):
+        self.base_url = base_url
+        self.model = model
+        self.api_key = api_key
+
+    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+        try:
+            prompt = self._convert_messages_to_prompt(messages)
+            
+            payload = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": stream
+            }
+            
+            if 'temperature' in kwargs:
+                payload['temperature'] = kwargs['temperature']
+            if 'max_tokens' in kwargs:
+                payload['options'] = payload.get('options', {})
+                payload['options']['num_predict'] = kwargs['max_tokens']
+            
+            if stream:
+                return self._stream_request(payload)
+            else:
+                response = requests.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                response.raise_for_status()
+                return response.json().get('response', '')
+                
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return None
+
+    def chat_stream(self, messages: List[Dict[str, str]], **kwargs) -> Iterator[str]:
+        return self.chat(messages, stream=True, **kwargs)
+
+    def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
+        prompt_parts = []
+        for message in messages:
+            role = message.get('role', 'user')
+            content = message.get('content', '')
+            
+            if role == 'system':
+                prompt_parts.append(f"System: {content}")
+            elif role == 'user':
+                prompt_parts.append(f"User: {content}")
+            elif role == 'assistant':
+                prompt_parts.append(f"Assistant: {content}")
+        
+        return "\n\n".join(prompt_parts) + "\n\nAssistant:"
+
+    def _stream_request(self, payload: Dict[str, Any]) -> Iterator[str]:
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                stream=True
+            )
+            response.raise_for_status()
+            
+            for line in response.iter_lines():
+                if line:
+                    data = json.loads(line.decode('utf-8'))
+                    if 'response' in data:
+                        yield data['response']
+                        
+        except Exception as e:
+            print(f"Ollama streaming error: {e}")
+            yield ""
+
 class LLMClient:
     """Unified LLM client that supports multiple providers"""
 
@@ -307,19 +389,20 @@ class LLMClient:
         'openai': OpenAIProvider,
         'google': GoogleProvider,
         'anthropic': AnthropicProvider,
+        'ollama': OllamaProvider,
     }
 
-    def __init__(self, provider: str = 'google', model: str = None, api_key: str = None):
+    def __init__(self, provider: str = 'google', model: str = None, api_key: str = None, base_url: str = None):
         self.provider_name = provider.lower()
 
         if self.provider_name not in self.PROVIDERS:
             raise ValueError(f"Unsupported provider: {provider}. Supported: {list(self.PROVIDERS.keys())}")
 
-        # Check if provider is available
         availability_map = {
             'openai': OPENAI_AVAILABLE,
             'google': GOOGLE_AVAILABLE,
-            'anthropic': ANTHROPIC_AVAILABLE
+            'anthropic': ANTHROPIC_AVAILABLE,
+            'ollama': OLLAMA_AVAILABLE
         }
 
         if not availability_map[self.provider_name]:
@@ -329,8 +412,7 @@ class LLMClient:
         if api_key is None:
             api_key = self._get_api_key_from_env(provider)
 
-        # Validate API key is available
-        if not api_key:
+        if not api_key and provider != 'ollama':
             available_keys = self._get_env_key_names(provider)
             raise ValueError(f"No API key found for {provider}. Please set one of: {available_keys}")
 
@@ -340,15 +422,15 @@ class LLMClient:
 
         # Initialize provider
         provider_class = self.PROVIDERS[self.provider_name]
-        self.provider = provider_class(api_key=api_key, model=model)
+        self.provider = provider_class(api_key=api_key, model=model, base_url=base_url)
 
     def _get_api_key_from_env(self, provider: str) -> Optional[str]:
-        """Get API key from environment variables"""
 
         env_keys = {
             'openai': ['OPENAI_API_KEY'],
             'google': ['GOOGLE_API_KEY'],
             'anthropic': ['ANTHROPIC_API_KEY'],
+            'ollama': ['OLLAMA_API_KEY'],
         }
 
         for key in env_keys.get(provider.lower(), []):
@@ -364,6 +446,7 @@ class LLMClient:
             'openai': ['OPENAI_API_KEY'],
             'google': ['GOOGLE_API_KEY'],
             'anthropic': ['ANTHROPIC_API_KEY'],
+            'ollama': ['OLLAMA_API_KEY'],
         }
         return env_keys.get(provider.lower(), [])
 
@@ -391,7 +474,8 @@ class LLMClient:
         availability_map = {
             'openai': OPENAI_AVAILABLE,
             'google': GOOGLE_AVAILABLE,
-            'anthropic': ANTHROPIC_AVAILABLE
+            'anthropic': ANTHROPIC_AVAILABLE,
+            'ollama': OLLAMA_AVAILABLE
         }
         return [provider for provider, available in availability_map.items() if available]
 
@@ -408,6 +492,6 @@ class LLMClient:
         return results
 
 # Convenience function for backwards compatibility
-def create_llm_client(backend: str = 'google', model: str = None, api_key: str = None) -> LLMClient:
+def create_llm_client(backend: str = 'google', model: str = None, api_key: str = None, base_url: str = None) -> LLMClient:
     """Create an LLM client with the specified backend"""
-    return LLMClient(provider=backend, model=model, api_key=api_key)
+    return LLMClient(provider=backend, model=model, api_key=api_key, base_url=base_url)
