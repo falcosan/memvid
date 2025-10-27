@@ -19,10 +19,10 @@ DEFAULT_OVERLAP = 200
 # Codec Settings
 VIDEO_CODEC = 'h265'        # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
 MP4V_PARAMETERS= {"video_file_type": "mp4",
-                  "video_fps": 15,
-                  "frame_height": 512,      # Increased for better QR quality
-                  "frame_width": 512,       # Increased for better QR quality
-                  "video_crf": 4,           # Constant Rate Factor (0-51, lower = better quality, 18 is visually lossless)
+                  "video_fps": 60,
+                  "frame_height": 2056,      # Increased for better QR quality
+                  "frame_width": 2056,       # Increased for better QR quality
+                  "video_crf": 0,           # Constant Rate Factor (0-51, lower = better quality)
                   "video_preset": "medium",  # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
                   "video_profile": "high", # baseline, main, high (baseline for max compatibility)
                   "pix_fmt": "yuv420p",
@@ -78,11 +78,12 @@ INDEX_TYPE = "Flat"  # Can be "IVF" for larger datasets, otherwise use Flat
 NLIST = 100  # Number of clusters for IVF index
 
 # LLM settings
-DEFAULT_LLM_PROVIDER = "google"  # google, openai, anthropic
+DEFAULT_LLM_PROVIDER = "google"  # google, openai, anthropic, ollama
 DEFAULT_LLM_MODELS = {
     "google": "gemini-2.0-flash-exp",
     "openai": "gpt-4o",
-    "anthropic": "claude-3-5-sonnet-20241022"
+    "anthropic": "claude-3-5-sonnet-20241022",
+    "ollama": "gemma3:1b"
 }
 
 MAX_TOKENS = 8192
