@@ -93,15 +93,7 @@ class MemvidChat:
 
     def _get_default_system_prompt(self) -> str:
         """Get the default system prompt"""
-        return """You are a helpful AI assistant with access to a knowledge base stored in video format. 
-
-When answering questions:
-1. Use the provided context from the knowledge base when relevant
-2. Be clear about what information comes from the knowledge base vs. your general knowledge
-3. If the context doesn't contain enough information, say so clearly
-4. Provide helpful, accurate, and concise responses
-
-The context will be provided with each query based on semantic similarity to the user's question."""
+        return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in Spanish."""
 
     def chat(self, message: str, stream: bool = False, max_context_tokens: int = 2000) -> str:
         """
@@ -164,10 +156,6 @@ The context will be provided with each query based on semantic similarity to the
         # Add system prompt
         if self.system_prompt:
             messages.append({"role": "system", "content": self.system_prompt})
-
-        # Add conversation history (last few exchanges to stay within limits)
-        history_to_include = self.conversation_history[-6:]  # Last 3 exchanges
-        messages.extend(history_to_include)
 
         # Prepare the current message with context
         if context.strip():
