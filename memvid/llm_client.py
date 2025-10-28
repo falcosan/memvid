@@ -1,4 +1,3 @@
-
 # memvid/llm_client.py
 
 import os
@@ -8,34 +7,40 @@ from abc import ABC, abstractmethod
 from memvid.config import DEFAULT_LLM_MODELS
 from typing import List, Dict, Any, Optional, Iterator, cast
 
-
 # Optional imports with availability checking
 OPENAI_AVAILABLE = importlib.util.find_spec("openai") is not None
 if OPENAI_AVAILABLE:
     # Set tokenizers parallelism to avoid warning
-    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 else:
     print("Warning: OpenAI library not available. OpenAI provider will be disabled.")
 
 GOOGLE_AVAILABLE = importlib.util.find_spec("google") is not None
 if not GOOGLE_AVAILABLE:
-    print("Warning: Google Generative AI library not available. Google provider will be disabled.")
+    print(
+        "Warning: Google Generative AI library not available. Google provider will be disabled."
+    )
 
 # Check for anthropic library availability
 ANTHROPIC_AVAILABLE = importlib.util.find_spec("anthropic") is not None
 if not ANTHROPIC_AVAILABLE:
-    print("Warning: Anthropic library not available. Anthropic provider will be disabled.")
+    print(
+        "Warning: Anthropic library not available. Anthropic provider will be disabled."
+    )
 
 # Check for requests library availability
 OLLAMA_AVAILABLE = importlib.util.find_spec("requests") is not None
 if not OLLAMA_AVAILABLE:
     print("Warning: Requests library not available. Ollama provider will be disabled.")
 
+
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
 
     @abstractmethod
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         """Send chat messages and get response"""
         pass
 
@@ -44,26 +49,29 @@ class LLMProvider(ABC):
         """Stream chat response"""
         pass
 
+
 class OpenAIProvider(LLMProvider):
     """OpenAI provider implementation"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: Optional[str] = None):
+    def __init__(
+        self, api_key: str, model: str = "gpt-4o", base_url: Optional[str] = None
+    ):
         if not OPENAI_AVAILABLE:
             raise ImportError("OpenAI library not available")
         from openai import OpenAI as OpenAIClient
+
         self.client = OpenAIClient(api_key=api_key, base_url=base_url)
         self.model = model
 
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         """Send chat messages to OpenAI"""
         try:
             # Type cast for OpenAI API compatibility
             formatted_messages = cast(Any, messages)
             response = self.client.chat.completions.create(
-                model=self.model,
-                messages=formatted_messages,
-                stream=stream,
-                **kwargs
+                model=self.model, messages=formatted_messages, stream=stream, **kwargs
             )
 
             if stream:
@@ -87,6 +95,7 @@ class OpenAIProvider(LLMProvider):
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
 
+
 class GoogleProvider(LLMProvider):
     """Google provider implementation based on your working code"""
 
@@ -95,26 +104,29 @@ class GoogleProvider(LLMProvider):
             raise ImportError("Google Generative AI library not available")
         # Import locally and cast to Any since google library lacks proper type stubs
         import google as genai_local
+
         client_class = cast(Any, genai_local).Client
         self.llm_client = client_class(api_key=api_key)
         self.model_name = model
         self.api_key = api_key
 
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         """Send chat messages to Google using your proven patterns"""
         try:
             # Convert to Google message format
             gemini_messages = self._convert_messages_to_gemini(messages)
 
             # Safety settings (from your working code)
-            if 'safety_settings' not in kwargs:
-                kwargs['safety_settings'] = {
-                    'HARASSMENT': 'block_none',
-                    'DANGEROUS': 'block_none',
-                    'SEXUAL': 'block_none',
-                    'HATE_SPEECH': 'block_none'
+            if "safety_settings" not in kwargs:
+                kwargs["safety_settings"] = {
+                    "HARASSMENT": "block_none",
+                    "DANGEROUS": "block_none",
+                    "SEXUAL": "block_none",
+                    "HATE_SPEECH": "block_none",
                 }
-            
+
             # Get generation config
             generation_config = self._extract_generation_config(kwargs)
 
@@ -146,46 +158,45 @@ class GoogleProvider(LLMProvider):
         gemini_messages = []
 
         for message in messages:
-            role = message.get('role', 'user')
-            content = message.get('content', '')
+            role = message.get("role", "user")
+            content = message.get("content", "")
 
             # Convert role names to Google format
-            if role == 'assistant':
-                role = 'model'
-            elif role == 'system':
+            if role == "assistant":
+                role = "model"
+            elif role == "system":
                 # Handle system messages by prepending to first user message
-                if gemini_messages and gemini_messages[-1]['role'] == 'user':
-                    gemini_messages[-1]['parts'][0]['text'] = f"{content}\n\n{gemini_messages[-1]['parts'][0]['text']}"
+                if gemini_messages and gemini_messages[-1]["role"] == "user":
+                    gemini_messages[-1]["parts"][0][
+                        "text"
+                    ] = f"{content}\n\n{gemini_messages[-1]['parts'][0]['text']}"
                 else:
-                    gemini_messages.append({
-                        'role': 'user',
-                        'parts': [{'text': content}]
-                    })
+                    gemini_messages.append(
+                        {"role": "user", "parts": [{"text": content}]}
+                    )
                 continue
 
-            gemini_messages.append({
-                'role': role,
-                'parts': [{'text': content}]
-            })
+            gemini_messages.append({"role": role, "parts": [{"text": content}]})
 
         return gemini_messages
 
     def _extract_generation_config(self, kwargs: Dict[str, Any]):
         """Extract Google-compatible generation config from kwargs"""
         from google.genai.types import GenerateContentConfig
+
         config_params = {}
 
         # Map common parameters to Google format
-        if 'temperature' in kwargs:
-            config_params['temperature'] = kwargs['temperature']
-        if 'max_tokens' in kwargs:
-            config_params['max_output_tokens'] = kwargs['max_tokens']
-        if 'top_p' in kwargs:
-            config_params['top_p'] = kwargs['top_p']
-        if 'stop_sequences' in kwargs:
-            config_params['stop_sequences'] = kwargs['stop_sequences']
-        if 'safety_settings' in kwargs:
-            config_params['safety_settings'] = kwargs['safety_settings']
+        if "temperature" in kwargs:
+            config_params["temperature"] = kwargs["temperature"]
+        if "max_tokens" in kwargs:
+            config_params["max_output_tokens"] = kwargs["max_tokens"]
+        if "top_p" in kwargs:
+            config_params["top_p"] = kwargs["top_p"]
+        if "stop_sequences" in kwargs:
+            config_params["stop_sequences"] = kwargs["stop_sequences"]
+        if "safety_settings" in kwargs:
+            config_params["safety_settings"] = kwargs["safety_settings"]
 
         return GenerateContentConfig(**config_params) if config_params else None
 
@@ -195,16 +206,17 @@ class GoogleProvider(LLMProvider):
 
         for chunk in response:
             chunk_text = ""
-            if hasattr(chunk, 'candidates') and chunk.candidates:
+            if hasattr(chunk, "candidates") and chunk.candidates:
                 for candidate in chunk.candidates:
-                    if hasattr(candidate, 'content') and candidate.content:
+                    if hasattr(candidate, "content") and candidate.content:
                         for part in candidate.content.parts:
-                            if hasattr(part, 'text') and part.text:
+                            if hasattr(part, "text") and part.text:
                                 chunk_text += part.text
 
             if chunk_text:
                 accumulated_text += chunk_text
                 yield chunk_text
+
 
 class AnthropicProvider(LLMProvider):
     """Anthropic Claude provider implementation based on your working code"""
@@ -213,6 +225,7 @@ class AnthropicProvider(LLMProvider):
         if not ANTHROPIC_AVAILABLE:
             raise ImportError("Anthropic library not available")
         import anthropic
+
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         self.api_key = api_key
@@ -220,21 +233,21 @@ class AnthropicProvider(LLMProvider):
         # Special handling for reasoning models
         self.is_reasoning_model = "claude-3-7-sonnet" in model
 
-
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         """Send chat messages to Anthropic using your proven patterns"""
         try:
             # Convert to Anthropic format
             anthropic_messages = self._convert_messages_to_anthropic(messages)
             system_prompt = self._extract_system_prompt(messages)
 
-
             # Get generation config
-            max_tokens = kwargs.get('max_tokens', 8096)
-            temperature = kwargs.get('temperature', 0.7)
-            top_p = kwargs.get('top_p', 0.9)
-            stop_sequences = kwargs.get('stop_sequences', None)
-            
+            max_tokens = kwargs.get("max_tokens", 8096)
+            temperature = kwargs.get("temperature", 0.7)
+            top_p = kwargs.get("top_p", 0.9)
+            stop_sequences = kwargs.get("stop_sequences", None)
+
             # Type cast for Anthropic API compatibility
             formatted_messages = cast(Any, anthropic_messages)
 
@@ -247,7 +260,7 @@ class AnthropicProvider(LLMProvider):
                     system=system_prompt,
                     messages=formatted_messages,
                     stop_sequences=stop_sequences if stop_sequences else [],
-                    stream=True
+                    stream=True,
                 )
                 return self._stream_response(response)
             else:
@@ -258,11 +271,11 @@ class AnthropicProvider(LLMProvider):
                     top_p=top_p,
                     system=system_prompt,
                     messages=formatted_messages,
-                    stop_sequences=stop_sequences if stop_sequences else []
+                    stop_sequences=stop_sequences if stop_sequences else [],
                 )
                 # Extract text from first content block if it's a TextBlock
                 first_block = response.content[0]
-                if hasattr(first_block, 'text'):
+                if hasattr(first_block, "text"):
                     text_block = cast(Any, first_block)
                     return text_block.text
                 else:
@@ -276,36 +289,41 @@ class AnthropicProvider(LLMProvider):
         """Stream chat response from Anthropic"""
         return self.chat(messages, stream=True, **kwargs)
 
-    def _convert_messages_to_anthropic(self, messages: List[Dict[str, str]]) -> List[Dict]:
+    def _convert_messages_to_anthropic(
+        self, messages: List[Dict[str, str]]
+    ) -> List[Dict]:
         """Convert OpenAI format to Anthropic format"""
         anthropic_messages = []
 
         for message in messages:
-            role = message.get('role', 'user')
-            content = message.get('content', '')
+            role = message.get("role", "user")
+            content = message.get("content", "")
 
             # Skip system messages (handled separately)
-            if role == 'system':
+            if role == "system":
                 continue
 
             # Convert assistant to Claude's expected format
-            if role == 'assistant':
-                anthropic_messages.append({
-                    'role': 'assistant',
-                    'content': [{'type': 'text', 'text': content}]
-                })
+            if role == "assistant":
+                anthropic_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": content}],
+                    }
+                )
             else:
-                anthropic_messages.append({
-                    'role': 'user',
-                    'content': [{'type': 'text', 'text': content}]
-                })
+                anthropic_messages.append(
+                    {"role": "user", "content": [{"type": "text", "text": content}]}
+                )
 
         return anthropic_messages
 
     def _extract_system_prompt(self, messages: List[Dict[str, str]]) -> str:
         """Extract system prompt from messages"""
-        system_messages = [msg['content'] for msg in messages if msg.get('role') == 'system']
-        return '\n\n'.join(system_messages) if system_messages else ""
+        system_messages = [
+            msg["content"] for msg in messages if msg.get("role") == "system"
+        ]
+        return "\n\n".join(system_messages) if system_messages else ""
 
     def _stream_response(self, response) -> Iterator[str]:
         """Process streaming response from Anthropic using your working approach"""
@@ -324,42 +342,47 @@ class AnthropicProvider(LLMProvider):
             elif chunk.type == "message_stop":
                 break
 
+
 class OllamaProvider(LLMProvider):
-    def __init__(self, api_key: Optional[str] = None, model: str = "gemma3:1b", base_url: str = "http://localhost:11434"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "gemma3:1b",
+        base_url: str = "http://localhost:11434",
+    ):
         if not OLLAMA_AVAILABLE:
             raise ImportError("Requests library not available")
         self.base_url = base_url
         self.model = model
         self.api_key = api_key
 
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         try:
             prompt = self._convert_messages_to_prompt(messages)
-            
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": stream
-            }
-            
-            if 'temperature' in kwargs:
-                payload['temperature'] = kwargs['temperature']
-            if 'max_tokens' in kwargs:
-                payload['options'] = payload.get('options', {})
-                payload['options']['num_predict'] = kwargs['max_tokens']
-            
+
+            payload = {"model": self.model, "prompt": prompt, "stream": stream}
+
+            if "temperature" in kwargs:
+                payload["temperature"] = kwargs["temperature"]
+            if "max_tokens" in kwargs:
+                payload["options"] = payload.get("options", {})
+                payload["options"]["num_predict"] = kwargs["max_tokens"]
+
             if stream:
                 return self._stream_request(payload)
             else:
                 import requests as req
+
                 response = req.post(
                     f"{self.base_url}/api/generate",
                     json=payload,
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 )
                 response.raise_for_status()
-                return response.json().get('response', '')
-                
+                return response.json().get("response", "")
+
         except Exception as e:
             print(f"Ollama API error: {e}")
             return None
@@ -370,72 +393,86 @@ class OllamaProvider(LLMProvider):
     def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
         prompt_parts = []
         for message in messages:
-            role = message.get('role', 'user')
-            content = message.get('content', '')
-            
-            if role == 'system':
+            role = message.get("role", "user")
+            content = message.get("content", "")
+
+            if role == "system":
                 prompt_parts.append(f"System: {content}")
-            elif role == 'user':
+            elif role == "user":
                 prompt_parts.append(f"User: {content}")
-            elif role == 'assistant':
+            elif role == "assistant":
                 prompt_parts.append(f"Assistant: {content}")
-        
+
         return "\n\n".join(prompt_parts) + "\n\nAssistant:"
 
     def _stream_request(self, payload: Dict[str, Any]) -> Iterator[str]:
         try:
             import requests as req
+
             response = req.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                stream=True
+                stream=True,
             )
             response.raise_for_status()
-            
+
             for line in response.iter_lines():
                 if line:
-                    data = json.loads(line.decode('utf-8'))
-                    if 'response' in data:
-                        yield data['response']
-                        
+                    data = json.loads(line.decode("utf-8"))
+                    if "response" in data:
+                        yield data["response"]
+
         except Exception as e:
             print(f"Ollama streaming error: {e}")
             yield ""
+
 
 class LLMClient:
     """Unified LLM client that supports multiple providers"""
 
     PROVIDERS = {
-        'openai': OpenAIProvider,
-        'google': GoogleProvider,
-        'anthropic': AnthropicProvider,
-        'ollama': OllamaProvider,
+        "openai": OpenAIProvider,
+        "google": GoogleProvider,
+        "anthropic": AnthropicProvider,
+        "ollama": OllamaProvider,
     }
 
-    def __init__(self, provider: str = 'google', model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(
+        self,
+        provider: str = "google",
+        model: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ):
         self.provider_name = provider.lower()
 
         if self.provider_name not in self.PROVIDERS:
-            raise ValueError(f"Unsupported provider: {provider}. Supported: {list(self.PROVIDERS.keys())}")
+            raise ValueError(
+                f"Unsupported provider: {provider}. Supported: {list(self.PROVIDERS.keys())}"
+            )
 
         availability_map = {
-            'openai': OPENAI_AVAILABLE,
-            'google': GOOGLE_AVAILABLE,
-            'anthropic': ANTHROPIC_AVAILABLE,
-            'ollama': OLLAMA_AVAILABLE
+            "openai": OPENAI_AVAILABLE,
+            "google": GOOGLE_AVAILABLE,
+            "anthropic": ANTHROPIC_AVAILABLE,
+            "ollama": OLLAMA_AVAILABLE,
         }
 
         if not availability_map[self.provider_name]:
-            raise ImportError(f"{provider} provider not available. Please install the required library.")
+            raise ImportError(
+                f"{provider} provider not available. Please install the required library."
+            )
 
         # Get API key from environment if not provided
         if api_key is None:
             api_key = self._get_api_key_from_env(provider)
 
-        if not api_key and provider not in ['ollama']:
+        if not api_key and provider not in ["ollama"]:
             available_keys = self._get_env_key_names(provider)
-            raise ValueError(f"No API key found for {provider}. Please set one of: {available_keys}")
+            raise ValueError(
+                f"No API key found for {provider}. Please set one of: {available_keys}"
+            )
 
         # Set default models
         if model is None:
@@ -448,10 +485,10 @@ class LLMClient:
     def _get_api_key_from_env(self, provider: str) -> Optional[str]:
 
         env_keys = {
-            'openai': ['OPENAI_API_KEY'],
-            'google': ['GOOGLE_API_KEY'],
-            'anthropic': ['ANTHROPIC_API_KEY'],
-            'ollama': ['OLLAMA_API_KEY'],
+            "openai": ["OPENAI_API_KEY"],
+            "google": ["GOOGLE_API_KEY"],
+            "anthropic": ["ANTHROPIC_API_KEY"],
+            "ollama": ["OLLAMA_API_KEY"],
         }
 
         for key in env_keys.get(provider.lower(), []):
@@ -464,10 +501,10 @@ class LLMClient:
     def _get_env_key_names(self, provider: str) -> List[str]:
         """Get list of environment variable names for a provider"""
         env_keys = {
-            'openai': ['OPENAI_API_KEY'],
-            'google': ['GOOGLE_API_KEY'],
-            'anthropic': ['ANTHROPIC_API_KEY'],
-            'ollama': ['OLLAMA_API_KEY'],
+            "openai": ["OPENAI_API_KEY"],
+            "google": ["GOOGLE_API_KEY"],
+            "anthropic": ["ANTHROPIC_API_KEY"],
+            "ollama": ["OLLAMA_API_KEY"],
         }
         return env_keys.get(provider.lower(), [])
 
@@ -478,7 +515,9 @@ class LLMClient:
             raise ValueError(f"No default model configured for provider: {provider}")
         return model
 
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs) -> Any:
+    def chat(
+        self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ) -> Any:
         """Send chat messages using the configured provider"""
         return self.provider.chat(messages, stream=stream, **kwargs)
 
@@ -495,12 +534,14 @@ class LLMClient:
     def list_available_providers(cls) -> List[str]:
         """List providers that are actually available (libraries installed)"""
         availability_map = {
-            'openai': OPENAI_AVAILABLE,
-            'google': GOOGLE_AVAILABLE,
-            'anthropic': ANTHROPIC_AVAILABLE,
-            'ollama': OLLAMA_AVAILABLE
+            "openai": OPENAI_AVAILABLE,
+            "google": GOOGLE_AVAILABLE,
+            "anthropic": ANTHROPIC_AVAILABLE,
+            "ollama": OLLAMA_AVAILABLE,
         }
-        return [provider for provider, available in availability_map.items() if available]
+        return [
+            provider for provider, available in availability_map.items() if available
+        ]
 
     @classmethod
     def check_api_keys(cls) -> Dict[str, bool]:
@@ -514,7 +555,13 @@ class LLMClient:
 
         return results
 
+
 # Convenience function for backwards compatibility
-def create_llm_client(backend: str = 'google', model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None) -> LLMClient:
+def create_llm_client(
+    backend: str = "google",
+    model: Optional[str] = None,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> LLMClient:
     """Create an LLM client with the specified backend"""
     return LLMClient(provider=backend, model=model, api_key=api_key, base_url=base_url)

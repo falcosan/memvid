@@ -5,10 +5,10 @@ Configuration defaults and constants for Memvid
 from typing import Dict, Any
 
 # QR Code settings
-QR_VERSION = None # None = auto-fit, 1-40 = fixed version. Lower versions work better with OpenCV decoder
-QR_ERROR_CORRECTION = 'M'  # L, M, Q, H (H = highest error correction for complex text)
-QR_BOX_SIZE = 10   # Pixel size of each QR module (higher = larger, easier to scan)
-QR_BORDER = 4      # Size of border around QR code
+QR_VERSION = None  # None = auto-fit, 1-40 = fixed version. Lower versions work better with OpenCV decoder
+QR_ERROR_CORRECTION = "M"  # L, M, Q, H (H = highest error correction for complex text)
+QR_BOX_SIZE = 10  # Pixel size of each QR module (higher = larger, easier to scan)
+QR_BORDER = 4  # Size of border around QR code
 QR_FILL_COLOR = "black"
 QR_BACK_COLOR = "white"
 
@@ -17,51 +17,63 @@ DEFAULT_CHUNK_SIZE = 800
 DEFAULT_OVERLAP = 200
 
 # Codec Settings
-VIDEO_CODEC = 'h265'        # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
-MP4V_PARAMETERS= {"video_file_type": "mp4",
-                  "video_fps": 60,
-                  "frame_height": 2056,      # Increased for better QR quality
-                  "frame_width": 2056,       # Increased for better QR quality
-                  "video_crf": 0,           # Constant Rate Factor (0-51, lower = better quality)
-                  "video_preset": "medium",  # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
-                  "video_profile": "high", # baseline, main, high (baseline for max compatibility)
-                  "pix_fmt": "yuv420p",
-                  "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage"}
+VIDEO_CODEC = "h265"  # Valid options are: mpv4, h265 or hevc, h264 or avc, and av1
+MP4V_PARAMETERS = {
+    "video_file_type": "mp4",
+    "video_fps": 60,
+    "frame_height": 2056,  # Increased for better QR quality
+    "frame_width": 2056,  # Increased for better QR quality
+    "video_crf": 0,  # Constant Rate Factor (0-51, lower = better quality)
+    "video_preset": "medium",  # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+    "video_profile": "high",  # baseline, main, high (baseline for max compatibility)
+    "pix_fmt": "yuv420p",
+    "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage",
+}
 
-H265_PARAMETERS = {"video_file_type": "mkv", # AKA HEVC
-                   "video_fps": 30,
-                   "video_crf": 28,
-                   "frame_height": 256,
-                   "frame_width": 256,
-                   "video_preset": "slower",
-                   "video_profile": "mainstillpicture",
-                   "pix_fmt": "yuv420p",
-                   "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage:no-scenecut:strong-intra-smoothing:constrained-intra:rect:amp"}
+H265_PARAMETERS = {
+    "video_file_type": "mkv",  # AKA HEVC
+    "video_fps": 30,
+    "video_crf": 28,
+    "frame_height": 256,
+    "frame_width": 256,
+    "video_preset": "slower",
+    "video_profile": "mainstillpicture",
+    "pix_fmt": "yuv420p",
+    "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage:no-scenecut:strong-intra-smoothing:constrained-intra:rect:amp",
+}
 
-H264_PARAMETERS = {"video_file_type": "mkv", # AKA AVC
-                   "video_fps": 30,
-                   "video_crf": 28,
-                   "frame_height": 256,
-                   "frame_width": 256,
-                   "video_preset": "slower",
-                   "video_profile": "main",
-                   "pix_fmt": "yuv420p",
-                   "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage:no-scenecut:strong-intra-smoothing:constrained-intra:rect:amp"}
+H264_PARAMETERS = {
+    "video_file_type": "mkv",  # AKA AVC
+    "video_fps": 30,
+    "video_crf": 28,
+    "frame_height": 256,
+    "frame_width": 256,
+    "video_preset": "slower",
+    "video_profile": "main",
+    "pix_fmt": "yuv420p",
+    "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage:no-scenecut:strong-intra-smoothing:constrained-intra:rect:amp",
+}
 
-AV1_PARAMETERS = {"video_file_type": "mkv",
-                  "video_crf": 28,
-                  "video_fps": 60,
-                  "frame_height": 720,
-                  "frame_width": 720,
-                  "video_preset": "slower",
-                  "video_profile": "mainstillpicture",
-                  "pix_fmt": "yuv420p",
-                  "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage"}
+AV1_PARAMETERS = {
+    "video_file_type": "mkv",
+    "video_crf": 28,
+    "video_fps": 60,
+    "frame_height": 720,
+    "frame_width": 720,
+    "video_preset": "slower",
+    "video_profile": "mainstillpicture",
+    "pix_fmt": "yuv420p",
+    "extra_ffmpeg_args": "-x265-params keyint=1:tune=stillimage",
+}
 
-codec_parameters = {"mp4v": MP4V_PARAMETERS,
-                    "h265": H265_PARAMETERS, "hevc": H265_PARAMETERS,
-                    "h264": H264_PARAMETERS, "avc": H264_PARAMETERS,
-                    "av1": AV1_PARAMETERS}
+codec_parameters = {
+    "mp4v": MP4V_PARAMETERS,
+    "h265": H265_PARAMETERS,
+    "hevc": H265_PARAMETERS,
+    "h264": H264_PARAMETERS,
+    "avc": H264_PARAMETERS,
+    "av1": AV1_PARAMETERS,
+}
 
 # Retrieval settings
 DEFAULT_TOP_K = 5
@@ -83,7 +95,7 @@ DEFAULT_LLM_MODELS = {
     "google": "gemini-2.0-flash-exp",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-20241022",
-    "ollama": "gemma3:1b"
+    "ollama": "gemma3:1b",
 }
 
 MAX_TOKENS = 8192
@@ -97,6 +109,7 @@ CONTEXT_CHUNKS_PER_QUERY = 5
 # Performance settings
 PREFETCH_FRAMES = 50
 DECODE_TIMEOUT = 10  # seconds
+
 
 def get_default_config() -> Dict[str, Any]:
     """Get default configuration dictionary"""
@@ -141,8 +154,9 @@ def get_default_config() -> Dict[str, Any]:
         "performance": {
             "prefetch_frames": PREFETCH_FRAMES,
             "decode_timeout": DECODE_TIMEOUT,
-        }
+        },
     }
+
 
 def get_codec_parameters(codec_name=None):
     """
@@ -158,6 +172,8 @@ def get_codec_parameters(codec_name=None):
         return codec_parameters
 
     if codec_name not in codec_parameters:
-        raise ValueError(f"Unsupported codec: {codec_name}. Available: {list(codec_parameters.keys())}")
+        raise ValueError(
+            f"Unsupported codec: {codec_name}. Available: {list(codec_parameters.keys())}"
+        )
 
     return codec_parameters[codec_name]
