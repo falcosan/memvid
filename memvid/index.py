@@ -1,16 +1,16 @@
 import json
-import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
-from typing import List, Dict, Any, Tuple, Optional
 import logging
+import numpy as np
 from pathlib import Path
 from .config import get_default_config
+from typing import List, Dict, Any, Tuple, Optional
+from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
-class IndexManager:
 
+class IndexManager:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or get_default_config()
         self.embedding_model = SentenceTransformer(self.config["embedding"]["model"])
@@ -26,14 +26,17 @@ class IndexManager:
             index = faiss.IndexFlatL2(self.dimension)
         elif index_type == "IVF":
             quantizer = faiss.IndexFlatL2(self.dimension)
-            index = faiss.IndexIVFFlat(quantizer, self.dimension, self.config["index"]["nlist"])
+            index = faiss.IndexIVFFlat(
+                quantizer, self.dimension, self.config["index"]["nlist"]
+            )
         else:
             raise ValueError(f"Unknown index type: {index_type}")
         index = faiss.IndexIDMap(index)
         return index
 
-    def add_chunks(self, chunks: List[str], frame_numbers: List[int],
-                  show_progress: bool = True) -> List[int]:
+    def add_chunks(
+        self, chunks: List[str], frame_numbers: List[int], show_progress: bool = True
+    ) -> List[int]:
         if len(chunks) != len(frame_numbers):
             raise ValueError("Number of chunks must match number of frame numbers")
         logger.info(f"Processing {len(chunks)} chunks for indexing...")
@@ -46,9 +49,13 @@ class IndexManager:
                 valid_frames.append(frame_num)
             else:
                 skipped_count += 1
-                logger.warning(f"Skipping invalid chunk at frame {frame_num}: length={len(chunk) if chunk else 0}")
+                logger.warning(
+                    f"Skipping invalid chunk at frame {frame_num}: length={len(chunk) if chunk else 0}"
+                )
         if skipped_count > 0:
-            logger.warning(f"Skipped {skipped_count} invalid chunks out of {len(chunks)} total")
+            logger.warning(
+                f"Skipped {skipped_count} invalid chunks out of {len(chunks)} total"
+            )
         if not valid_chunks:
             logger.error("No valid chunks to process")
             return []
@@ -78,12 +85,14 @@ class IndexManager:
         if len(chunk) > 8192:
             return False
         try:
-            chunk.encode('utf-8')
+            chunk.encode("utf-8")
             return True
         except UnicodeEncodeError:
             return False
 
-    def _generate_embeddings(self, chunks: List[str], show_progress: bool) -> np.ndarray:
+    def _generate_embeddings(
+        self, chunks: List[str], show_progress: bool
+    ) -> np.ndarray:
         try:
             logger.info(f"Generating embeddings for {len(chunks)} chunks (full batch)")
             embeddings = self.embedding_model.encode(
@@ -91,58 +100,73 @@ class IndexManager:
                 show_progress_bar=show_progress,
                 batch_size=32,
                 convert_to_numpy=True,
-                normalize_embeddings=True
+                normalize_embeddings=True,
             )
-            return np.array(embeddings).astype('float32')
+            return np.array(embeddings).astype("float32")
         except Exception as e:
-            logger.warning(f"Full batch embedding failed: {e}. Trying batch processing...")
+            logger.warning(
+                f"Full batch embedding failed: {e}. Trying batch processing..."
+            )
             return self._generate_embeddings_batched(chunks, show_progress)
 
-    def _generate_embeddings_batched(self, chunks: List[str], show_progress: bool) -> np.ndarray:
+    def _generate_embeddings_batched(
+        self, chunks: List[str], show_progress: bool
+    ) -> np.ndarray:
         all_embeddings = []
         valid_chunks = []
         batch_size = 100
         total_batches = (len(chunks) + batch_size - 1) // batch_size
         if show_progress:
             from tqdm import tqdm
-            batch_iter = tqdm(range(0, len(chunks), batch_size),
-                            desc="Processing chunks in batches",
-                            total=total_batches)
+
+            batch_iter = tqdm(
+                range(0, len(chunks), batch_size),
+                desc="Processing chunks in batches",
+                total=total_batches,
+            )
         else:
             batch_iter = range(0, len(chunks), batch_size)
         for i in batch_iter:
-            batch_chunks = chunks[i:i + batch_size]
+            batch_chunks = chunks[i : i + batch_size]
             try:
                 batch_embeddings = self.embedding_model.encode(
                     batch_chunks,
                     show_progress_bar=False,
                     batch_size=16,
                     convert_to_numpy=True,
-                    normalize_embeddings=True
+                    normalize_embeddings=True,
                 )
                 all_embeddings.extend(batch_embeddings)
                 valid_chunks.extend(batch_chunks)
             except Exception as e:
-                logger.warning(f"Batch {i//batch_size} failed: {e}. Processing individually...")
+                logger.warning(
+                    f"Batch {i//batch_size} failed: {e}. Processing individually..."
+                )
                 for chunk in batch_chunks:
                     try:
                         embedding = self.embedding_model.encode(
                             [chunk],
                             show_progress_bar=False,
                             convert_to_numpy=True,
-                            normalize_embeddings=True
+                            normalize_embeddings=True,
                         )
                         all_embeddings.extend(embedding)
                         valid_chunks.append(chunk)
                     except Exception as chunk_error:
-                        logger.error(f"Failed to embed individual chunk (length={len(chunk)}): {chunk_error}")
+                        logger.error(
+                            f"Failed to embed individual chunk (length={len(chunk)}): {chunk_error}"
+                        )
                         continue
         if not all_embeddings:
             raise RuntimeError("No embeddings could be generated")
-        logger.info(f"Generated embeddings for {len(valid_chunks)} out of {len(chunks)} chunks")
-        return np.array(all_embeddings).astype('float32')
+        logger.info(
+            f"Generated embeddings for {len(valid_chunks)} out of {len(chunks)} chunks"
+        )
+        return np.array(all_embeddings).astype("float32")
 
-    def _add_to_index(self, embeddings: np.ndarray, chunks: List[str], frame_numbers: List[int]) -> List[int]:
+    def _add_to_index(
+        self, embeddings: np.ndarray, chunks: List[str], frame_numbers: List[int]
+    ) -> List[int]:
         if len(embeddings) != len(chunks) or len(embeddings) != len(frame_numbers):
             min_len = min(len(embeddings), len(chunks), len(frame_numbers))
             embeddings = embeddings[:min_len]
@@ -157,7 +181,7 @@ class IndexManager:
                 underlying_index = self.index.index
             else:
                 underlying_index = self.index
-            
+
             if isinstance(underlying_index, faiss.IndexIVFFlat):
                 nlist = underlying_index.nlist
                 if not underlying_index.is_trained:
@@ -168,25 +192,35 @@ class IndexManager:
                     else:
                         recommended_min = nlist * 10
                         if len(embeddings) < recommended_min:
-                            logger.warning(f"Suboptimal training data: {len(embeddings)} embeddings (recommended: {recommended_min}+)")
-                            logger.warning("Consider using larger dataset or 'Flat' index for better results")
+                            logger.warning(
+                                f"Suboptimal training data: {len(embeddings)} embeddings (recommended: {recommended_min}+)"
+                            )
+                            logger.warning(
+                                "Consider using larger dataset or 'Flat' index for better results"
+                            )
                         logger.info("🏋️ Training FAISS IVF index...")
                         logger.info(f" - Training vectors: {len(embeddings)}")
                         logger.info(f" - Clusters (nlist): {nlist}")
-                        logger.info(f" - Expected memory: ~{(len(embeddings) * self.dimension * 4) / 1024 / 1024:.1f} MB")
-                        training_data = embeddings[:min(50000, len(embeddings))]
+                        logger.info(
+                            f" - Expected memory: ~{(len(embeddings) * self.dimension * 4) / 1024 / 1024:.1f} MB"
+                        )
+                        training_data = embeddings[: min(50000, len(embeddings))]
                         # Train the index with the training data
                         underlying_index.train(training_data)
                         logger.info("FAISS IVF training completed successfully")
                 else:
                     logger.info(f"FAISS IVF index already trained (nlist={nlist})")
             else:
-                logger.info(f"Using {type(underlying_index).__name__} (no training required)")
+                logger.info(
+                    f"Using {type(underlying_index).__name__} (no training required)"
+                )
         except Exception as e:
             logger.error(f"Index training failed with error: {e}")
             logger.error(f"Error type: {type(e).__name__}")
             logger.info("Falling back to IndexFlatL2 for reliability")
-            logger.info("To avoid this fallback, use 'Flat' index type in config for small datasets")
+            logger.info(
+                "To avoid this fallback, use 'Flat' index type in config for small datasets"
+            )
             self.index = faiss.IndexIDMap(faiss.IndexFlatL2(self.dimension))
             logger.info("Fallback complete - using exact search")
         try:
@@ -195,13 +229,15 @@ class IndexManager:
         except Exception as e:
             logger.error(f"Failed to add embeddings to FAISS index: {e}")
             raise
-        for i, (chunk, frame_num, chunk_id) in enumerate(zip(chunks, frame_numbers, chunk_ids)):
+        for i, (chunk, frame_num, chunk_id) in enumerate(
+            zip(chunks, frame_numbers, chunk_ids)
+        ):
             try:
                 metadata = {
                     "id": chunk_id,
                     "text": chunk,
                     "frame": frame_num,
-                    "length": len(chunk)
+                    "length": len(chunk),
                 }
                 self.metadata.append(metadata)
                 self.chunk_to_frame[chunk_id] = frame_num
@@ -213,9 +249,11 @@ class IndexManager:
                 continue
         return chunk_ids
 
-    def search(self, query: str, top_k: int = 5) -> List[Tuple[int, float, Dict[str, Any]]]:
+    def search(
+        self, query: str, top_k: int = 5
+    ) -> List[Tuple[int, float, Dict[str, Any]]]:
         query_embedding = self.embedding_model.encode([query])
-        query_embedding = np.array(query_embedding).astype('float32')
+        query_embedding = np.array(query_embedding).astype("float32")
         # Perform search with explicit parameter names
         distances, indices = self.index.search(query_embedding, top_k)
         results = []
@@ -236,27 +274,27 @@ class IndexManager:
 
     def save(self, path: str):
         path_obj = Path(path)
-        faiss.write_index(self.index, str(path_obj.with_suffix('.faiss')))
+        faiss.write_index(self.index, str(path_obj.with_suffix(".faiss")))
         data = {
             "metadata": self.metadata,
             "chunk_to_frame": self.chunk_to_frame,
             "frame_to_chunks": self.frame_to_chunks,
-            "config": self.config
+            "config": self.config,
         }
-        with open(path_obj.with_suffix('.json'), 'w') as f:
+        with open(path_obj.with_suffix(".json"), "w") as f:
             json.dump(data, f, indent=2)
         logger.info(f"Saved index to {path}")
 
     def load(self, path: str):
         path_obj = Path(path)
-        loaded_index = faiss.read_index(str(path_obj.with_suffix('.faiss')))
+        loaded_index = faiss.read_index(str(path_obj.with_suffix(".faiss")))
         # Ensure the loaded index is an IndexIDMap
         if isinstance(loaded_index, faiss.IndexIDMap):
             self.index = loaded_index
         else:
             # Wrap in IndexIDMap if it's not already
             self.index = faiss.IndexIDMap(loaded_index)
-        with open(path_obj.with_suffix('.json'), 'r') as f:
+        with open(path_obj.with_suffix(".json"), "r") as f:
             data = json.load(f)
         self.metadata = data["metadata"]
         self.chunk_to_frame = {int(k): v for k, v in data["chunk_to_frame"].items()}
@@ -272,5 +310,9 @@ class IndexManager:
             "index_type": self.config["index"]["type"],
             "embedding_model": self.config["embedding"]["model"],
             "dimension": self.dimension,
-            "avg_chunks_per_frame": np.mean([len(chunks) for chunks in self.frame_to_chunks.values()]) if self.frame_to_chunks else 0
+            "avg_chunks_per_frame": (
+                np.mean([len(chunks) for chunks in self.frame_to_chunks.values()])
+                if self.frame_to_chunks
+                else 0
+            ),
         }

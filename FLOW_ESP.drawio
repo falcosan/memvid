@@ -1,0 +1,235 @@
+<mxfile host="65bd71144e">
+    <diagram name="Memvid Architecture" id="complete-flow">
+        <mxGraphModel dx="1150" dy="1156" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" background="#FFFFFF" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="lib-memvid: Flujo de Arquitectura" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="284" y="20" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="encoding-title" value="FASE 1: CODIFICACIÓN (MemvidEncoder)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="80" width="1080" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-text" value="Entrada de Texto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="150" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-pdf" value="Archivos PDF" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="150" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-epub" value="Archivos EPUB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="150" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-csv" value="Datos CSV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="184" y="150" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-video" value="Video Existente" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="150" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="chunking" value="&lt;b&gt;Fragmentación de Texto&lt;/b&gt;&lt;br&gt;&lt;br&gt;El texto se divide en segmentos&lt;br&gt;superpuestos, preservando los&lt;br&gt;límites de las oraciones para&lt;br&gt;mejor contexto y búsqueda" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="250" width="240" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="input-text" target="chunking" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="110" y="230"/>
+                            <mxPoint x="320" y="230"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="input-pdf" target="chunking" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="input-epub" target="chunking" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="input-csv" target="chunking" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr-gen" value="&lt;b&gt;Generación de Códigos QR&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Cada fragmento de texto es:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Envuelto con metadatos&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Comprimido para eficiencia&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Codificado en Base64&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Convertido a imagen QR&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Con alta corrección de errores&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Preparado como fotograma RGB&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="390" width="240" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="chunking" target="qr-gen" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="parallel-index" value="&lt;b&gt;PROCESAMIENTO PARALELO&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="250" width="400" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="embedding" value="&lt;b&gt;Generación de Embeddings&lt;/b&gt;&lt;br&gt;&lt;br&gt;Los fragmentos de texto se&lt;br&gt;transforman en vectores de alta&lt;br&gt;dimensión usando embeddings&lt;br&gt;neuronales, capturando el&lt;br&gt;significado semántico para&lt;br&gt;búsqueda por similitud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="310" width="190" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="faiss" value="&lt;b&gt;Índice Vectorial FAISS&lt;/b&gt;&lt;br&gt;&lt;br&gt;Los embeddings se indexan en una&lt;br&gt;estructura de búsqueda de alto&lt;br&gt;rendimiento que permite consultas&lt;br&gt;rápidas por similitud, con mapeos&lt;br&gt;entre fragmentos y fotogramas&lt;br&gt;de video preservados" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="890" y="310" width="190" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="chunking" target="embedding" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="embedding" target="faiss" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="video-encoding" value="&lt;b&gt;Codificación de Video&lt;/b&gt;&lt;br&gt;&lt;br&gt;Los fotogramas de códigos QR&lt;br&gt;se ensamblan en un archivo&lt;br&gt;de video&lt;br&gt;&lt;br&gt;&lt;b&gt;Múltiples opciones de códec:&lt;/b&gt;&lt;br&gt;• H.265/HEVC&lt;br&gt;• H.264/AVC&lt;br&gt;• MP4V&lt;br&gt;• AV1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="590" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="qr-gen" target="video-encoding" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-video" value="&lt;b&gt;SALIDA&lt;/b&gt;&lt;br&gt;memory.mp4/.mkv/.avi&lt;br&gt;&lt;br&gt;Fotogramas de Códigos QR&lt;br&gt;codificados como video" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="650" width="140" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-index-faiss" value="&lt;b&gt;SALIDA&lt;/b&gt;&lt;br&gt;memory.faiss&lt;br&gt;&lt;br&gt;Índice vectorial&lt;br&gt;FAISS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="650" width="140" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-index-json" value="&lt;b&gt;SALIDA&lt;/b&gt;&lt;br&gt;memory.json&lt;br&gt;&lt;br&gt;Metadatos:&lt;br&gt;fragmentos, fotogramas,&lt;br&gt;mapeos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="650" width="140" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="video-encoding" target="output-video" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="faiss" target="output-index-faiss" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="985" y="550"/>
+                            <mxPoint x="750" y="550"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="faiss" target="output-index-json" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="retrieval-title" value="FASE 2: RECUPERACIÓN (MemvidRetriever)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="900" width="1080" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-query" value="&lt;b&gt;Consulta del Usuario&lt;/b&gt;&lt;br&gt;&quot;Buscar texto&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="1000" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="query-embedding" value="&lt;b&gt;Embedding de Consulta&lt;/b&gt;&lt;br&gt;&lt;br&gt;La consulta de búsqueda se&lt;br&gt;convierte al mismo espacio&lt;br&gt;vectorial que los fragmentos&lt;br&gt;indexados usando el mismo&lt;br&gt;modelo de embeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="970" width="170" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="user-query" target="query-embedding" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="faiss-search" value="&lt;b&gt;Búsqueda Semántica&lt;/b&gt;&lt;br&gt;&lt;br&gt;El índice vectorial encuentra&lt;br&gt;fragmentos con el significado&lt;br&gt;semántico más cercano a la&lt;br&gt;consulta, devolviendo resultados&lt;br&gt;clasificados con puntuaciones&lt;br&gt;de similitud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="960" width="170" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="query-embedding" target="faiss-search" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="keyword-boost" value="&lt;b&gt;Refuerzo por Palabras Clave&lt;/b&gt;&lt;br&gt;&lt;br&gt;Los resultados se reclasifican&lt;br&gt;combinando similitud semántica&lt;br&gt;con coincidencia de palabras&lt;br&gt;clave, mejorando la precisión&lt;br&gt;cuando hay términos exactos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="670" y="970" width="180" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="faiss-search" target="keyword-boost" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="frame-extract" value="&lt;b&gt;Extracción de Fotogramas&lt;/b&gt;&lt;br&gt;&lt;br&gt;El archivo de video se abre y&lt;br&gt;se extraen fotogramas específicos&lt;br&gt;basados en los mapeos de&lt;br&gt;fragmentos. Los fotogramas se&lt;br&gt;almacenan en caché para&lt;br&gt;rendimiento y se procesan en&lt;br&gt;lotes paralelos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="890" y="960" width="180" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="keyword-boost" target="frame-extract" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="qr-decode" value="&lt;b&gt;Decodificación de Códigos QR&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cada fotograma se somete a múltiples&lt;br&gt;intentos de decodificación usando&lt;br&gt;diferentes estrategias de procesamiento&lt;br&gt;de imagen para maximizar el éxito:&lt;br&gt;&lt;br&gt;• Conversión a escala de grises&lt;br&gt;• Escalado de imagen&lt;br&gt;• Mejora de contraste&lt;br&gt;• Ajustes de umbral&lt;br&gt;• Reducción de ruido&lt;br&gt;• Operaciones morfológicas&lt;br&gt;• Afilado de bordes&lt;br&gt;• Inversión de color&lt;br&gt;• Filtrado bilateral&lt;br&gt;&lt;br&gt;Una vez decodificado, los datos&lt;br&gt;se descomprimen y analizan para&lt;br&gt;extraer el texto original" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="883" y="1160" width="194" height="400" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="frame-extract" target="qr-decode" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="970" y="1090"/>
+                            <mxPoint x="340" y="1090"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="retrieved-chunks" value="&lt;b&gt;Fragmentos de Texto Recuperados&lt;/b&gt;&lt;br&gt;&lt;br&gt;Top-K: fragmentos más&lt;br&gt;relevantes con puntuaciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="1320" width="180" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="qr-decode" target="retrieved-chunks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="chat-title" value="FASE 3: CHAT (MemvidChat con Integración LLM)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1590" width="1080" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-question" value="&lt;b&gt;Pregunta del Usuario&lt;/b&gt;&lt;br&gt;&quot;Preguntar sobre contenido&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1730" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="context-retrieval" value="&lt;b&gt;Recuperación de Contexto&lt;/b&gt;&lt;br&gt;&lt;br&gt;El sistema de recuperación busca&lt;br&gt;fragmentos de texto relevantes&lt;br&gt;del video, obteniendo múltiples&lt;br&gt;piezas de contexto para&lt;br&gt;proporcionar información&lt;br&gt;completa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="260" y="1670" width="160" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="user-question" target="context-retrieval" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="msg-build" value="&lt;b&gt;Construcción de Mensaje&lt;/b&gt;&lt;br&gt;&lt;br&gt;Se construye un contexto de&lt;br&gt;conversación completo combinando:&lt;br&gt;• Instrucciones del sistema&lt;br&gt;• Fragmentos de contexto recuperados&lt;br&gt;• Pregunta del usuario&lt;br&gt;• Historial de conversación previo&lt;br&gt;&lt;br&gt;Esto crea un prompt enriquecido&lt;br&gt;para que el LLM genere respuestas&lt;br&gt;informadas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="480" y="1670" width="180" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="context-retrieval" target="msg-build" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="460" y="1760"/>
+                            <mxPoint x="460" y="1760"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="llm-selector" value="&lt;b&gt;Selección de Proveedor LLM&lt;/b&gt;&lt;br&gt;&lt;br&gt;El sistema se conecta a uno de varios proveedores de IA según la configuración" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="1680" width="390" height="490" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="msg-build" target="llm-selector" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="710" y="1769"/>
+                            <mxPoint x="710" y="1769"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="llm-openai" value="&lt;b&gt;Proveedor OpenAI&lt;/b&gt;&lt;br&gt;&lt;br&gt;Se conecta a la API de OpenAI&lt;br&gt;usando modelos como GPT-4o.&lt;br&gt;Requiere clave API del&lt;br&gt;entorno o configuración.&lt;br&gt;Soporta respuestas en streaming&lt;br&gt;para salida en tiempo real" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="740" y="1760" width="150" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="llm-google" value="&lt;b&gt;Proveedor Google&lt;/b&gt;&lt;br&gt;&lt;br&gt;Se conecta a los modelos Gemini&lt;br&gt;de Google con configuración&lt;br&gt;avanzada de seguridad. Requiere&lt;br&gt;clave API del entorno o&lt;br&gt;configuración. Soporta streaming&lt;br&gt;para respuestas progresivas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="940" y="1760" width="150" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="llm-anthropic" value="&lt;b&gt;Proveedor Anthropic&lt;/b&gt;&lt;br&gt;&lt;br&gt;Se conecta a los modelos Claude&lt;br&gt;de Anthropic para razonamiento&lt;br&gt;avanzado. Requiere clave API&lt;br&gt;del entorno o configuración.&lt;br&gt;Soporta respuestas en streaming" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="740" y="1970" width="150" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="llm-ollama" value="&lt;b&gt;Proveedor Ollama&lt;/b&gt;&lt;br&gt;&lt;br&gt;Se conecta al servidor Ollama&lt;br&gt;local para inferencia enfocada&lt;br&gt;en privacidad. Ejecuta modelos&lt;br&gt;localmente sin dependencias&lt;br&gt;de API externas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="940" y="1970" width="150" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="streaming" value="&lt;b&gt;Generación de Respuesta&lt;/b&gt;&lt;br&gt;&lt;br&gt;El LLM genera respuestas ya sea&lt;br&gt;como mensaje completo o en&lt;br&gt;streaming token por token para&lt;br&gt;salida en tiempo real" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="1970" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="final-response" value="&lt;b&gt;Respuesta de IA&lt;/b&gt;&lt;br&gt;&lt;br&gt;Respuesta contextual&lt;br&gt;basada en el contenido&lt;br&gt;del video recuperado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="2120" width="220" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;" parent="1" source="streaming" target="final-response" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-title" value="RESUMEN DEL FLUJO DE DATOS" style="rounded=1;whiteSpace=wrap;html=1;fontSize=16;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="2280" width="1080" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-encode" value="&lt;b&gt;1.&lt;/b&gt;&lt;div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;CODIFICAR:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt; Cuando comienza la codificación, el texto se fragmenta en segmentos → Cada fragmento se convierte en un fotograma de código QR → Todos los fotogramas se ensamblan en un archivo de video&lt;/span&gt;&lt;/div&gt;&lt;b&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;PARALELO:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent; font-weight: normal;&quot;&gt; Simultáneamente, los fragmentos se incrustan en vectores → Los vectores se indexan para búsqueda semántica rápida → El índice se guarda junto al video&lt;/span&gt;&lt;/div&gt;&lt;/b&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;labelPadding=0;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="2330" width="1000" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-retrieve" value="&lt;b&gt;2.&lt;/b&gt;&lt;div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;RECUPERAR:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt; Cuando comienza la búsqueda, la consulta se incrusta en un vector → El índice vectorial encuentra fragmentos semánticamente similares → Los resultados se reclasifican con coincidencia de palabras clave&lt;/span&gt;&lt;/div&gt;&lt;b&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;LUEGO:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent; font-weight: normal;&quot;&gt; Se identifican los números de fotograma relevantes → Los fotogramas de video se extraen en paralelo → Los códigos QR se decodifican usando múltiples estrategias → Se devuelve el texto original&lt;/span&gt;&lt;/div&gt;&lt;/b&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="2410" width="1000" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-chat" value="&lt;b&gt;3.&lt;/b&gt;&lt;div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;CHAT:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt; Cuando llega una pregunta, se recupera el contexto relevante del video → El contexto se combina con la pregunta y el historial de conversación → El prompt completo se envía al LLM&lt;/span&gt;&lt;/div&gt;&lt;b&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;b style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;LLM:&lt;/b&gt;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent; font-weight: normal;&quot;&gt; El proveedor de IA procesa la solicitud → La respuesta se genera con plena conciencia del contexto → La respuesta se transmite o se devuelve completa → La conversación se guarda para continuidad&lt;/span&gt;&lt;/div&gt;&lt;/b&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="2500" width="1000" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="video-read-title" value="CÓMO SE LEE EL FILE VIDEO" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="2610" width="1080" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="video-read-detail" value="&lt;b&gt;1. Apertura de Video:&lt;/b&gt; Cuando comienza la lectura, OpenCV abre el archivo de video y verifica su integridad&lt;br&gt;&lt;b&gt;2. Posicionamiento de Fotogramas:&lt;/b&gt; El sistema navega a números de fotograma específicos basados en los mapeos de fragmentos del índice&lt;br&gt;&lt;b&gt;3. Lectura de Fotogramas:&lt;/b&gt; Cada fotograma se extrae como un array de imagen en memoria&lt;br&gt;&lt;b&gt;4. Detección de QR:&lt;/b&gt; El fotograma se analiza para localizar y decodificar el patrón del código QR&lt;br&gt;&lt;b&gt;5. Múltiples Estrategias:&lt;/b&gt; Si la decodificación inicial falla, la imagen se somete a técnicas de mejora progresivas: conversión a escala de grises, escalado, ajuste de contraste, reducción de ruido, afilado, y más&lt;br&gt;&lt;b&gt;6. Descompresión:&lt;/b&gt; Una vez decodificado, los datos codificados se descomprimen del formato Base64 y GZIP, luego se analizan como JSON&lt;br&gt;&lt;b&gt;7. Almacenamiento en Caché:&lt;/b&gt; Los fotogramas decodificados exitosamente se almacenan en caché en memoria para evitar procesamiento redundante en accesos repetidos&lt;br&gt;&lt;b&gt;8. Procesamiento Paralelo:&lt;/b&gt; Múltiples fotogramas se procesan simultáneamente a través de hilos de CPU para máximo rendimiento" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="2655" width="1000" height="145" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;align=center;" parent="1" source="input-video" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="590" y="230" as="sourcePoint"/>
+                        <mxPoint x="320" y="250" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="590" y="230"/>
+                            <mxPoint x="321" y="230"/>
+                            <mxPoint x="321" y="250"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="10" style="edgeStyle=none;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1.01;entryY=0.705;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="llm-selector" target="streaming" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

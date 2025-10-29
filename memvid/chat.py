@@ -4,13 +4,12 @@ MemvidChat - Enhanced conversational interface with multi-provider LLM support
 
 import json
 import logging
-from typing import List, Dict, Optional
-from datetime import datetime
 from pathlib import Path
-
+from datetime import datetime
 from .llm_client import LLMClient
 from .retriever import MemvidRetriever
 from .config import get_default_config
+from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +18,15 @@ class MemvidChat:
     """Enhanced MemvidChat with multi-provider LLM support"""
 
     def __init__(
-            self,
-            video_file: str,
-            index_file: str,
-            llm_provider: str = 'google',
-            llm_model: Optional[str] = None,
-            llm_api_key: Optional[str] = None,
-            llm_base_url: Optional[str] = None,
-            config: Optional[Dict] = None,
-            retriever_kwargs: Optional[Dict] = None
+        self,
+        video_file: str,
+        index_file: str,
+        llm_provider: str = "google",
+        llm_model: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
+        llm_base_url: Optional[str] = None,
+        config: Optional[Dict] = None,
+        retriever_kwargs: Optional[Dict] = None,
     ):
         """
         Initialize MemvidChat with flexible LLM provider support
@@ -55,7 +54,7 @@ class MemvidChat:
                 provider=llm_provider,
                 model=llm_model,
                 api_key=llm_api_key,
-                base_url=llm_base_url
+                base_url=llm_base_url,
             )
             self.llm_provider = llm_provider
             logger.info(f"✓ Initialized {llm_provider} LLM client")
@@ -73,10 +72,14 @@ class MemvidChat:
         self.session_id = None
         self.system_prompt = None
 
-    def start_session(self, system_prompt: Optional[str] = None, session_id: Optional[str] = None):
+    def start_session(
+        self, system_prompt: Optional[str] = None, session_id: Optional[str] = None
+    ):
         """Start a new chat session with optional system prompt"""
         self.conversation_history = []
-        self.session_id = session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.session_id = (
+            session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
 
         if system_prompt:
             self.system_prompt = system_prompt
@@ -94,7 +97,9 @@ class MemvidChat:
         """Get the default system prompt"""
         return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in the same language as the question."""
 
-    def chat(self, message: str, stream: bool = False, max_context_tokens: int = 2000) -> str:
+    def chat(
+        self, message: str, stream: bool = False, max_context_tokens: int = 2000
+    ) -> str:
         """
         Send a message and get a response using retrieved context
 
@@ -124,7 +129,9 @@ class MemvidChat:
         else:
             response = self.llm_client.chat(messages)
             if response:
-                self.conversation_history.append({"role": "assistant", "content": response})
+                self.conversation_history.append(
+                    {"role": "assistant", "content": response}
+                )
                 return response
             else:
                 return "Sorry, I encountered an error generating a response."
@@ -136,12 +143,13 @@ class MemvidChat:
             context_chunks = self.retriever.search(query, top_k=self.context_chunks)
 
             # Join chunks into context string
-            context = "\n\n".join([f"[Context {i+1}]: {chunk}"
-                                   for i, chunk in enumerate(context_chunks)])
+            context = "\n\n".join(
+                [f"[Context {i+1}]: {chunk}" for i, chunk in enumerate(context_chunks)]
+            )
 
             # Rough token limiting (4 chars ≈ 1 token)
             if len(context) > max_tokens * 4:
-                context = context[:max_tokens * 4] + "..."
+                context = context[: max_tokens * 4] + "..."
 
             return context
         except Exception as e:
@@ -173,7 +181,7 @@ User question: {message}"""
         """Handle streaming response from LLM"""
         if not self.llm_client:
             return "Error: LLM client not available for streaming."
-            
+
         print("Assistant: ", end="", flush=True)
         full_response = ""
 
@@ -186,7 +194,9 @@ User question: {message}"""
 
             # Add to conversation history
             if full_response:
-                self.conversation_history.append({"role": "assistant", "content": full_response})
+                self.conversation_history.append(
+                    {"role": "assistant", "content": full_response}
+                )
 
             return full_response
 
@@ -204,13 +214,19 @@ User question: {message}"""
                 return "I couldn't find any relevant information in the knowledge base."
 
             # Check if the chunks are actually relevant
-            avg_chunk_length = sum(len(chunk) for chunk in context_chunks) / len(context_chunks)
+            avg_chunk_length = sum(len(chunk) for chunk in context_chunks) / len(
+                context_chunks
+            )
             if avg_chunk_length < 50:  # Likely fragment matches
                 return "I couldn't find any relevant information about that topic in the knowledge base."
 
             response = "Based on the knowledge base, here's what I found:\n\n"
             for i, chunk in enumerate(context_chunks[:3]):  # Limit to top 3
-                response += f"{i+1}. {chunk[:200]}...\n\n" if len(chunk) > 200 else f"{i+1}. {chunk}\n\n"
+                response += (
+                    f"{i+1}. {chunk[:200]}...\n\n"
+                    if len(chunk) > 200
+                    else f"{i+1}. {chunk}\n\n"
+                )
 
             return response.strip()
 
@@ -220,7 +236,9 @@ User question: {message}"""
     def interactive_chat(self):
         """Start an interactive chat session"""
         if not self.llm_client:
-            print("Warning: LLM client not initialized. Will return context-only responses.")
+            print(
+                "Warning: LLM client not initialized. Will return context-only responses."
+            )
 
         self.start_session()
 
@@ -235,7 +253,7 @@ User question: {message}"""
             try:
                 user_input = input("\nYou: ").strip()
 
-                if user_input.lower() in ['quit', 'exit', 'q']:
+                if user_input.lower() in ["quit", "exit", "q"]:
                     # Export conversation before exiting
                     if self.conversation_history:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -244,11 +262,11 @@ User question: {message}"""
                     print("Goodbye!")
                     break
 
-                elif user_input.lower() == 'clear':
+                elif user_input.lower() == "clear":
                     self.clear_history()
                     continue
 
-                elif user_input.lower() == 'stats':
+                elif user_input.lower() == "stats":
                     stats = self.get_stats()
                     print(f"Session stats: {stats}")
                     continue
@@ -297,17 +315,17 @@ User question: {message}"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
         conversation_data = {
-            'session_id': self.session_id,
-            'system_prompt': self.system_prompt,
-            'llm_provider': self.llm_provider,
-            'conversation': self.conversation_history,
-            'video_file': self.video_file,
-            'index_file': self.index_file,
-            'timestamp': datetime.now().isoformat(),
-            'stats': self.get_stats()
+            "session_id": self.session_id,
+            "system_prompt": self.system_prompt,
+            "llm_provider": self.llm_provider,
+            "conversation": self.conversation_history,
+            "video_file": self.video_file,
+            "index_file": self.index_file,
+            "timestamp": datetime.now().isoformat(),
+            "stats": self.get_stats(),
         }
 
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(conversation_data, f, indent=2, ensure_ascii=False)
 
         print(f"Conversation exported to {path}")
@@ -319,12 +337,14 @@ User question: {message}"""
         Args:
             session_file: Path to session file
         """
-        with open(session_file, 'r', encoding='utf-8') as f:
+        with open(session_file, "r", encoding="utf-8") as f:
             session_data = json.load(f)
 
         self.session_id = session_data.get("session_id")
         self.conversation_history = session_data.get("conversation", [])
-        self.system_prompt = session_data.get("system_prompt", self._get_default_system_prompt())
+        self.system_prompt = session_data.get(
+            "system_prompt", self._get_default_system_prompt()
+        )
 
         logger.info(f"Loaded session: {self.session_id}")
 
@@ -337,20 +357,25 @@ User question: {message}"""
     def get_stats(self) -> Dict:
         """Get stats about the current session"""
         return {
-            'session_id': self.session_id,
-            'messages_exchanged': len(self.conversation_history),
-            'llm_provider': self.llm_provider,
-            'llm_available': self.llm_client is not None,
-            'video_file': self.video_file,
-            'index_file': self.index_file,
-            'context_chunks_per_query': self.context_chunks,
-            'max_history': self.max_history
+            "session_id": self.session_id,
+            "messages_exchanged": len(self.conversation_history),
+            "llm_provider": self.llm_provider,
+            "llm_available": self.llm_client is not None,
+            "video_file": self.video_file,
+            "index_file": self.index_file,
+            "context_chunks_per_query": self.context_chunks,
+            "max_history": self.max_history,
         }
 
 
 # Backwards compatibility aliases
-def chat_with_memory(video_file: str, index_file: str, api_key: Optional[str] = None,
-                     provider: str = 'google', model: Optional[str] = None):
+def chat_with_memory(
+    video_file: str,
+    index_file: str,
+    api_key: Optional[str] = None,
+    provider: str = "google",
+    model: Optional[str] = None,
+):
     """
     Quick chat function for backwards compatibility
 
@@ -366,14 +391,19 @@ def chat_with_memory(video_file: str, index_file: str, api_key: Optional[str] = 
         index_file=index_file,
         llm_provider=provider,
         llm_model=model,
-        llm_api_key=api_key
+        llm_api_key=api_key,
     )
 
     chat.interactive_chat()
 
 
-def quick_chat(video_file: str, index_file: str, message: str,
-               provider: str = 'google', api_key: Optional[str] = None) -> str:
+def quick_chat(
+    video_file: str,
+    index_file: str,
+    message: str,
+    provider: str = "google",
+    api_key: Optional[str] = None,
+) -> str:
     """
     Quick single message chat
 
@@ -391,7 +421,7 @@ def quick_chat(video_file: str, index_file: str, message: str,
         video_file=video_file,
         index_file=index_file,
         llm_provider=provider,
-        llm_api_key=api_key
+        llm_api_key=api_key,
     )
 
     return chat.chat(message)

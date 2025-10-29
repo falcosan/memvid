@@ -1,29 +1,32 @@
+import cv2
+import time
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import time
-import cv2
-from .utils import  batch_extract_and_decode, extract_and_decode_cached
-
 from .index import IndexManager
 from .config import get_default_config
+from typing import List, Dict, Any, Optional
+from .utils import batch_extract_and_decode, extract_and_decode_cached
 
 logger = logging.getLogger(__name__)
 
+
 class MemvidRetriever:
 
-    def __init__(self, video_file: str, index_file: str,
-                config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, video_file: str, index_file: str, config: Optional[Dict[str, Any]] = None
+    ):
         self.video_file = str(Path(video_file).absolute())
         self.index_file = str(Path(index_file).absolute())
         self.config = config or get_default_config()
         self.index_manager = IndexManager(self.config)
-        self.index_manager.load(str(Path(index_file).with_suffix('')))
+        self.index_manager.load(str(Path(index_file).with_suffix("")))
         self._frame_cache = {}
         self._cache_size = self.config["retrieval"]["cache_size"]
         self._verify_video()
-        logger.info(f"Initialized retriever with {self.index_manager.get_stats()['total_chunks']} chunks")
+        logger.info(
+            f"Initialized retriever with {self.index_manager.get_stats()['total_chunks']} chunks"
+        )
 
     def _verify_video(self):
         cap = cv2.VideoCapture(self.video_file)
@@ -39,7 +42,9 @@ class MemvidRetriever:
         search_pool_size = min(top_k * 5, 50)
         search_results = self.index_manager.search(query, search_pool_size)
         query_lower = query.lower()
-        query_words = [w.strip('¿?.,!¡') for w in query_lower.split() if len(w.strip('¿?.,!¡')) > 3]
+        query_words = [
+            w.strip("¿?.,!¡") for w in query_lower.split() if len(w.strip("¿?.,!¡")) > 3
+        ]
         scored_results = []
         for chunk_id, distance, metadata in search_results:
             text = metadata.get("text", "").lower()
@@ -54,7 +59,9 @@ class MemvidRetriever:
                 adjusted_distance = distance / boost_factor
             else:
                 adjusted_distance = distance
-            scored_results.append((chunk_id, adjusted_distance, metadata, keyword_score))
+            scored_results.append(
+                (chunk_id, adjusted_distance, metadata, keyword_score)
+            )
         scored_results.sort(key=lambda x: x[1])
         best_keyword_score = max((r[3] for r in scored_results[:top_k]), default=0)
         if best_keyword_score <= 1.5 and len(query_words) > 0:
@@ -69,7 +76,9 @@ class MemvidRetriever:
                         if orig_meta.get("id") == chunk_id:
                             distance = orig_dist
                             break
-                    keyword_matches.append((chunk_id, distance, metadata, keyword_score))
+                    keyword_matches.append(
+                        (chunk_id, distance, metadata, keyword_score)
+                    )
             keyword_matches.sort(key=lambda x: (-x[3], x[1]))
             seen_ids = {r[0] for r in scored_results[:top_k]}
             added = 0
@@ -129,9 +138,7 @@ class MemvidRetriever:
             return results
         max_workers = self.config["retrieval"]["max_workers"]
         decoded = batch_extract_and_decode(
-            self.video_file,
-            uncached_frames,
-            max_workers=max_workers
+            self.video_file, uncached_frames, max_workers=max_workers
         )
         for frame_num, data in decoded.items():
             results[frame_num] = data
@@ -155,13 +162,15 @@ class MemvidRetriever:
                     text = metadata["text"]
             else:
                 text = metadata["text"]
-            results.append({
-                "text": text,
-                "score": 1.0 / (1.0 + distance),
-                "chunk_id": chunk_id,
-                "frame": frame_num,
-                "metadata": metadata
-            })
+            results.append(
+                {
+                    "text": text,
+                    "score": 1.0 / (1.0 + distance),
+                    "chunk_id": chunk_id,
+                    "frame": frame_num,
+                    "metadata": metadata,
+                }
+            )
         elapsed = time.time() - start_time
         logger.info(f"Search with metadata completed in {elapsed:.3f}s")
         return results
@@ -194,5 +203,5 @@ class MemvidRetriever:
             "fps": self.fps,
             "cache_size": len(self._frame_cache),
             "max_cache_size": self._cache_size,
-            "index_stats": self.index_manager.get_stats()
+            "index_stats": self.index_manager.get_stats(),
         }
