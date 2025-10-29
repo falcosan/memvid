@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="Memvid Architecture" id="complete-flow">
-        <mxGraphModel dx="1590" dy="759" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+        <mxGraphModel dx="1150" dy="1156" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" background="#FFFFFF" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -226,7 +226,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="10" style="edgeStyle=none;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1.01;entryY=0.705;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="llm-selector" target="streaming">
+                <mxCell id="10" style="edgeStyle=none;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1.01;entryY=0.705;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="llm-selector" target="streaming" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
             </root>
