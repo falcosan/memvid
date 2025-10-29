@@ -3,7 +3,6 @@ Shared utility functions for Memvid
 """
 
 import cv2
-import json
 import gzip
 import base64
 import logging
@@ -16,12 +15,11 @@ from qrcode import (
     ERROR_CORRECT_M,
     ERROR_CORRECT_Q,
 )
-from PIL import Image
 from tqdm import tqdm
 from functools import lru_cache
 from .config import get_default_config
+from typing import List, Tuple, Optional, Dict
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -233,32 +231,6 @@ def decode_qr(image: np.ndarray) -> Optional[str]:
         logger.debug(f"QR decode failed: {e}")
 
     return None
-
-
-def qr_to_frame(qr_image: Image.Image, frame_size: Tuple[int, int]) -> np.ndarray:
-    """
-    Convert QR PIL image to video frame
-
-    Args:
-        qr_image: PIL Image of QR code
-        frame_size: Target frame size (width, height)
-
-    Returns:
-        OpenCV frame array
-    """
-    # Resize to fit frame while maintaining aspect ratio
-    qr_image = qr_image.resize(frame_size, Image.Resampling.LANCZOS)
-
-    # Convert to RGB mode if necessary (handles L, P, etc. modes)
-    if qr_image.mode != "RGB":
-        qr_image = qr_image.convert("RGB")
-
-    # Convert to numpy array and ensure proper dtype
-    img_array = np.array(qr_image, dtype=np.uint8)
-
-    # Convert to OpenCV format
-    frame = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-    return frame
 
 
 def extract_frame(video_path: str, frame_number: int) -> Optional[np.ndarray]:
@@ -473,15 +445,3 @@ def extract_all_frames_from_video(
         f"Successfully decoded {len(decoded_results)} out of {total_frames} frames"
     )
     return decoded_results
-
-
-def save_index(index_data: Dict[str, Any], output_path: str):
-    """Save index data to JSON file"""
-    with open(output_path, "w") as f:
-        json.dump(index_data, f, indent=2)
-
-
-def load_index(index_path: str) -> Dict[str, Any]:
-    """Load index data from JSON file"""
-    with open(index_path, "r") as f:
-        return json.load(f)

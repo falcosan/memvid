@@ -26,26 +26,13 @@ class MemvidChat:
         llm_api_key: Optional[str] = None,
         llm_base_url: Optional[str] = None,
         config: Optional[Dict] = None,
-        retriever_kwargs: Optional[Dict] = None,
     ):
-        """
-        Initialize MemvidChat with flexible LLM provider support
-
-        Args:
-            video_file: Path to the video memory file
-            index_file: Path to the index JSON file
-            llm_provider: LLM provider ('openai', 'google', 'anthropic')
-            llm_model: Model name (uses provider defaults if None)
-            llm_api_key: API key (uses environment variables if None)
-            config: Optional configuration dictionary
-            retriever_kwargs: Additional arguments for MemvidRetriever
-        """
+        """Initialize MemvidChat with flexible LLM provider support"""
         self.video_file = video_file
         self.index_file = index_file
         self.config = config or get_default_config()
 
         # Initialize retriever
-        retriever_kwargs = retriever_kwargs or {}
         self.retriever = MemvidRetriever(video_file, index_file, self.config)
 
         # Initialize LLM client
@@ -63,189 +50,163 @@ class MemvidChat:
             self.llm_client = None
             self.llm_provider = None
 
-        # Chat configuration
+        # Configuration
         self.context_chunks = self.config.get("chat", {}).get("context_chunks", 10)
         self.max_history = self.config.get("chat", {}).get("max_history", 10)
 
-        # Chat history
+        # Session state
         self.conversation_history = []
         self.session_id = None
-        self.system_prompt = None
+        self.system_prompt = "You are a helpful AI assistant with access to a knowledge base stored in video format. You must answer always in the same language as the question."
 
-    def start_session(
-        self, system_prompt: Optional[str] = None, session_id: Optional[str] = None
-    ):
-        """Start a new chat session with optional system prompt"""
+    def start_session(self, system_prompt: Optional[str] = None):
+        """Start a new chat session"""
         self.conversation_history = []
-        self.session_id = (
-            session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
-
+        self.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         if system_prompt:
             self.system_prompt = system_prompt
-        else:
-            self.system_prompt = self._get_default_system_prompt()
 
         logger.info(f"Chat session started: {self.session_id}")
-        if self.llm_provider:
-            print(f"Using {self.llm_provider} for responses.")
-        else:
-            print("LLM not available - will return context only.")
-        print("-" * 50)
-
-    def _get_default_system_prompt(self) -> str:
-        """Get the default system prompt"""
-        return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in the same language as the question."""
+        provider_msg = (
+            f"Using {self.llm_provider} for responses."
+            if self.llm_provider
+            else "LLM not available - will return context only."
+        )
+        print(f"{provider_msg}\n{'-' * 50}")
 
     def chat(
-        self,
-        message: str,
-        stream: bool = False,
-        max_context_tokens: int = 2000,
-        use_history: bool = False,
+        self, message: str, stream: bool = False, use_history: bool = False
     ) -> str:
-        """
-        Send a message and get a response using retrieved context
-
-        Args:
-            message: User message
-            stream: Whether to stream the response
-            max_context_tokens: Maximum tokens to use for context
-            use_history: Whether to include conversation history in context
-        """
+        """Send a message and get a response using retrieved context"""
         if not self.session_id:
             self.start_session()
 
+        # Handle non-LLM case
         if not self.llm_client:
-            return self._generate_context_only_response(message)
+            return self._context_only_response(message)
 
-        # Retrieve relevant context
-        context = self._get_context(message, max_context_tokens)
+        # Build messages with context
+        messages = self._build_messages(message, use_history)
 
-        # Build messages for LLM
-        messages = self._build_messages(message, context, use_history)
-
-        # Add to conversation history
+        # Store user message
         self.conversation_history.append({"role": "user", "content": message})
 
-        # Get response from LLM
-        if stream:
-            return self._handle_streaming_response(messages)
-        else:
-            response = self.llm_client.chat(messages)
+        # Get and store response
+        try:
+            if stream:
+                print("Assistant: ", end="", flush=True)
+                full_response = ""
+                for chunk in self.llm_client.chat_stream(messages):
+                    print(chunk, end="", flush=True)
+                    full_response += chunk
+                print()
+                response = full_response
+            else:
+                response = self.llm_client.chat(messages)
+
             if response:
                 self.conversation_history.append(
                     {"role": "assistant", "content": response}
                 )
                 return response
-            else:
-                return "Sorry, I encountered an error generating a response."
+        except Exception as e:
+            error_msg = f"Error generating response: {e}"
+            logger.error(error_msg)
+            return error_msg
 
-    def _get_context(self, query: str, max_tokens: int = 2000) -> str:
-        """Retrieve relevant context from the video memory"""
+        return "Sorry, I encountered an error generating a response."
+
+    def _build_messages(self, message: str, use_history: bool) -> List[Dict[str, str]]:
+        """Build message list with context and optional history"""
+        messages = [{"role": "system", "content": self.system_prompt}]
+
+        # Add conversation history if requested
+        if use_history and self.conversation_history:
+            messages.extend(self.conversation_history[-(self.max_history * 2) :])
+
+        # Retrieve and add context
         try:
-            # Use the existing retriever's search method
-            context_chunks = self.retriever.search(query, top_k=self.context_chunks)
-
-            # Join chunks into context string
+            chunks = self.retriever.search(message, top_k=self.context_chunks)
             context = "\n\n".join(
-                [f"[Context {i+1}]: {chunk}" for i, chunk in enumerate(context_chunks)]
+                [f"[Context {i+1}]: {chunk}" for i, chunk in enumerate(chunks)]
             )
 
-            # Rough token limiting (4 chars ≈ 1 token)
-            if len(context) > max_tokens * 4:
-                context = context[: max_tokens * 4] + "..."
+            # Limit context length (rough estimate: 4 chars ≈ 1 token)
+            if len(context) > 8000:
+                context = context[:8000] + "..."
 
-            return context
+            if context.strip():
+                enhanced_message = f"Context from knowledge base:\n{context}\n\nUser question: {message}"
+            else:
+                enhanced_message = message
         except Exception as e:
             logger.error(f"Error retrieving context: {e}")
-            return ""
-
-    def _build_messages(
-        self, message: str, context: str, use_history: bool = False
-    ) -> List[Dict[str, str]]:
-        """Build the message list for the LLM"""
-        messages = []
-
-        # Add system prompt
-        if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
-
-        # Only add conversation history if explicitly requested or for follow-ups
-        if use_history and self.conversation_history:
-            # Get the last N messages from history
-            history_to_include = self.conversation_history[-(self.max_history * 2) :]
-            for hist_msg in history_to_include:
-                messages.append(hist_msg)
-
-        # Prepare the current message with context
-        if context.strip():
-            enhanced_message = f"""Context from knowledge base:
-{context}
-
-User question: {message}"""
-        else:
             enhanced_message = message
 
         messages.append({"role": "user", "content": enhanced_message})
-
         return messages
 
-    def _handle_streaming_response(self, messages: List[Dict[str, str]]) -> str:
-        """Handle streaming response from LLM"""
-        if not self.llm_client:
-            return "Error: LLM client not available for streaming."
-
-        print("Assistant: ", end="", flush=True)
-        full_response = ""
-
+    def _context_only_response(self, query: str) -> str:
+        """Generate response without LLM (fallback)"""
         try:
-            for chunk in self.llm_client.chat_stream(messages):
-                print(chunk, end="", flush=True)
-                full_response += chunk
-
-            print()  # New line after streaming
-
-            # Add to conversation history
-            if full_response:
-                self.conversation_history.append(
-                    {"role": "assistant", "content": full_response}
-                )
-
-            return full_response
-
-        except Exception as e:
-            error_msg = f"\nError during streaming: {e}"
-            print(error_msg)
-            return error_msg
-
-    def _generate_context_only_response(self, query: str) -> str:
-        """Generate response without LLM (context only fallback)"""
-        try:
-            context_chunks = self.retriever.search(query, top_k=self.context_chunks)
-
-            if not context_chunks:
+            chunks = self.retriever.search(query, top_k=self.context_chunks)
+            if not chunks:
                 return "I couldn't find any relevant information in the knowledge base."
 
-            # Check if the chunks are actually relevant
-            avg_chunk_length = sum(len(chunk) for chunk in context_chunks) / len(
-                context_chunks
-            )
-            if avg_chunk_length < 50:  # Likely fragment matches
-                return "I couldn't find any relevant information about that topic in the knowledge base."
+            # Check relevance
+            if sum(len(chunk) for chunk in chunks) / len(chunks) < 50:
+                return "I couldn't find any relevant information about that topic."
 
-            response = "Based on the knowledge base, here's what I found:\n\n"
-            for i, chunk in enumerate(context_chunks[:3]):  # Limit to top 3
-                response += (
-                    f"{i+1}. {chunk[:200]}...\n\n"
-                    if len(chunk) > 200
-                    else f"{i+1}. {chunk}\n\n"
-                )
-
+            response = "Based on the knowledge base:\n\n"
+            for i, chunk in enumerate(chunks[:3], 1):
+                excerpt = chunk[:200] + "..." if len(chunk) > 200 else chunk
+                response += f"{i}. {excerpt}\n\n"
             return response.strip()
-
         except Exception as e:
             return f"Error searching knowledge base: {e}"
+
+    def export_conversation(self, path: str):
+        """Export conversation history to JSON file"""
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        data = {
+            "session_id": self.session_id,
+            "timestamp": datetime.now().isoformat(),
+            "llm_provider": self.llm_provider,
+            "conversation": self.conversation_history,
+            "video_file": self.video_file,
+            "index_file": self.index_file,
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        print(f"Conversation exported to {path}")
+
+    def load_session(self, session_file: str):
+        """Load session from file"""
+        with open(session_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        self.session_id = data.get("session_id")
+        self.conversation_history = data.get("conversation", [])
+        logger.info(f"Loaded session: {self.session_id}")
+
+    def search_context(self, query: str, top_k: int = 5) -> List[str]:
+        """
+        Search for context without generating a response
+
+        Args:
+            query: Search query
+            top_k: Number of results to return
+
+        Returns:
+            List of relevant text chunks from the knowledge base
+        """
+        try:
+            return self.retriever.search(query, top_k=top_k)
+        except Exception as e:
+            logger.error(f"Error in search_context: {e}")
+            return []
 
     def interactive_chat(self):
         """Start an interactive chat session"""
@@ -255,56 +216,48 @@ User question: {message}"""
             )
 
         self.start_session()
-
-        print("Commands:")
-        print("  - Type your questions normally")
-        print("  - Type 'quit' or 'exit' to end")
-        print("  - Type 'clear' to clear conversation history")
-        print("  - Type 'stats' to see session statistics")
-        print(
-            "  - Type '+' at the start to include conversation history (follow-up mode)"
-        )
+        print("Commands: quit/exit | clear | stats | + prefix for follow-up questions")
         print("=" * 50)
 
         while True:
             try:
                 user_input = input("\nYou: ").strip()
 
+                # Handle commands
                 if user_input.lower() in ["quit", "exit", "q"]:
-                    # Export conversation before exiting
                     if self.conversation_history:
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        export_path = f"output/conversation_{timestamp}.json"
-                        self.export_conversation(export_path)
+                        self.export_conversation(
+                            f"output/conversation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        )
                     print("Goodbye!")
                     break
 
-                elif user_input.lower() == "clear":
-                    self.clear_history()
+                if user_input.lower() == "clear":
+                    self.conversation_history = []
+                    print("Conversation history cleared.")
                     continue
 
-                elif user_input.lower() == "stats":
-                    stats = self.get_stats()
-                    print(f"Session stats: {stats}")
+                if user_input.lower() == "stats":
+                    print(
+                        f"Session: {self.session_id}, Messages: {len(self.conversation_history)}, Provider: {self.llm_provider}"
+                    )
                     continue
 
                 if not user_input:
                     continue
 
-                # Check if user wants to use history (follow-up question)
-                use_history = False
-                if user_input.startswith("+"):
-                    use_history = True
+                # Check for follow-up mode
+                use_history = user_input.startswith("+")
+                if use_history:
                     user_input = user_input[1:].strip()
 
-                # Get response (always stream for better UX if LLM available)
+                # Get response
                 if self.llm_client:
                     self.chat(user_input, stream=True, use_history=use_history)
                 else:
-                    response = self.chat(
-                        user_input, stream=False, use_history=use_history
+                    print(
+                        f"Assistant: {self.chat(user_input, use_history=use_history)}"
                     )
-                    print(f"Assistant: {response}")
 
             except KeyboardInterrupt:
                 print("\nGoodbye!")
@@ -312,141 +265,26 @@ User question: {message}"""
             except Exception as e:
                 print(f"Error: {e}")
 
-    def search_context(self, query: str, top_k: int = 5) -> List[str]:
-        """
-        Search for context without generating a response
 
-        Args:
-            query: Search query
-            top_k: Number of results
-
-        Returns:
-            List of search results
-        """
-        try:
-            return self.retriever.search(query, top_k)
-        except Exception as e:
-            logger.error(f"Error in search_context: {e}")
-            return []
-
-    def clear_history(self):
-        """Clear the conversation history"""
-        self.conversation_history = []
-        print("Conversation history cleared.")
-
-    def export_conversation(self, path: str):
-        """Export conversation history to a JSON file"""
-        # Ensure output directory exists
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-
-        conversation_data = {
-            "session_id": self.session_id,
-            "system_prompt": self.system_prompt,
-            "llm_provider": self.llm_provider,
-            "conversation": self.conversation_history,
-            "video_file": self.video_file,
-            "index_file": self.index_file,
-            "timestamp": datetime.now().isoformat(),
-            "stats": self.get_stats(),
-        }
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(conversation_data, f, indent=2, ensure_ascii=False)
-
-        print(f"Conversation exported to {path}")
-
-    def load_session(self, session_file: str):
-        """
-        Load session from file
-
-        Args:
-            session_file: Path to session file
-        """
-        with open(session_file, "r", encoding="utf-8") as f:
-            session_data = json.load(f)
-
-        self.session_id = session_data.get("session_id")
-        self.conversation_history = session_data.get("conversation", [])
-        self.system_prompt = session_data.get(
-            "system_prompt", self._get_default_system_prompt()
-        )
-
-        logger.info(f"Loaded session: {self.session_id}")
-
-    def reset_session(self):
-        """Reset conversation history"""
-        self.conversation_history = []
-        self.session_id = None
-        logger.info("Reset conversation session")
-
-    def get_stats(self) -> Dict:
-        """Get stats about the current session"""
-        return {
-            "session_id": self.session_id,
-            "messages_exchanged": len(self.conversation_history),
-            "llm_provider": self.llm_provider,
-            "llm_available": self.llm_client is not None,
-            "video_file": self.video_file,
-            "index_file": self.index_file,
-            "context_chunks_per_query": self.context_chunks,
-            "max_history": self.max_history,
-        }
-
-
-# Backwards compatibility aliases
-def chat_with_memory(
-    video_file: str,
-    index_file: str,
-    api_key: Optional[str] = None,
-    provider: str = "google",
-    model: Optional[str] = None,
-):
-    """
-    Quick chat function for backwards compatibility
-
-    Args:
-        video_file: Path to video memory file
-        index_file: Path to index file
-        api_key: LLM API key
-        provider: LLM provider
-        model: LLM model
-    """
+# Convenience functions for backwards compatibility
+def chat_with_memory(video_file: str, index_file: str, **kwargs):
+    """Quick interactive chat function"""
     chat = MemvidChat(
         video_file=video_file,
         index_file=index_file,
-        llm_provider=provider,
-        llm_model=model,
-        llm_api_key=api_key,
+        llm_provider=kwargs.get("provider", "google"),
+        llm_model=kwargs.get("model"),
+        llm_api_key=kwargs.get("api_key"),
     )
-
     chat.interactive_chat()
 
 
-def quick_chat(
-    video_file: str,
-    index_file: str,
-    message: str,
-    provider: str = "google",
-    api_key: Optional[str] = None,
-) -> str:
-    """
-    Quick single message chat
-
-    Args:
-        video_file: Path to video memory file
-        index_file: Path to index file
-        message: Message to send
-        provider: LLM provider
-        api_key: LLM API key
-
-    Returns:
-        Response from the assistant
-    """
+def quick_chat(video_file: str, index_file: str, message: str, **kwargs) -> str:
+    """Quick single message chat"""
     chat = MemvidChat(
         video_file=video_file,
         index_file=index_file,
-        llm_provider=provider,
-        llm_api_key=api_key,
+        llm_provider=kwargs.get("provider", "google"),
+        llm_api_key=kwargs.get("api_key"),
     )
-
     return chat.chat(message)

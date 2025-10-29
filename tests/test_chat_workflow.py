@@ -34,7 +34,7 @@ def _setup_paths() -> Tuple[Path, Path, Path]:
 def _create_video_from_csv(csv_path: Path, video_path: str, index_path: str) -> int:
     """Create video from CSV and return chunk count."""
     encoder = MemvidEncoder()
-    encoder.add_csv(str(csv_path), text_column="text")
+    encoder.add_content(content=str(csv_path), content_type="csv", text_column="text")
     chunk_count = len(encoder.chunks)
 
     assert chunk_count > 0, f"No chunks added from {csv_path.name}"
@@ -54,7 +54,7 @@ def _merge_and_extend_video(
 ) -> Tuple[int, int, float]:
     """Merge video and extend with new CSV data."""
     encoder = MemvidEncoder()
-    encoder.merge_from_video(source_video)
+    encoder.add_content(content=source_video, content_type="video")
 
     after_merge = len(encoder.chunks)
     recovery_rate = (after_merge / initial_chunks * 100) if initial_chunks > 0 else 0
@@ -63,7 +63,7 @@ def _merge_and_extend_video(
         recovery_rate >= MIN_RECOVERY_RATE
     ), f"Insufficient recovery: {recovery_rate:.1f}% (expected >= {MIN_RECOVERY_RATE}%)"
 
-    encoder.add_csv(str(csv_path), text_column="text")
+    encoder.add_content(content=str(csv_path), content_type="csv", text_column="text")
     final_chunks = len(encoder.chunks)
 
     assert final_chunks > after_merge, f"No chunks added from {csv_path.name}"
