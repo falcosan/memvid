@@ -15,6 +15,7 @@ from .config import (
 )
 from pathlib import Path
 from .index import IndexManager
+from .storage import get_storage_adapter
 from typing import List, Optional, Dict, Any
 from .utils import encode_to_qr, chunk_text, extract_all_frames_from_video
 
@@ -22,10 +23,15 @@ logger = logging.getLogger(__name__)
 
 
 class MemvidEncoder:
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        storage_connection: Optional[str] = None,
+    ):
         self.config = config or get_default_config()
+        self.storage = get_storage_adapter(storage_connection)
         self.chunks = []
-        self.index_manager = IndexManager(self.config)
+        self.index_manager = IndexManager(self.config, storage_connection)
 
     def add_chunks(self, chunks: List[str]):
         self.chunks.extend(chunks)
@@ -442,13 +448,27 @@ class MemvidEncoder:
         codec: str = VIDEO_CODEC,
         show_progress: bool = True,
         allow_fallback: bool = True,
+        upload_to_blob: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not self.chunks:
             raise ValueError("No chunks to encode. Use add_chunks() first.")
-        output_path = Path(output_file)
-        index_path = Path(index_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        index_path.parent.mkdir(parents=True, exist_ok=True)
+
+        is_blob_output = self.storage._is_blob_url(output_file)
+        is_blob_index = self.storage._is_blob_url(index_file)
+
+        if is_blob_output or is_blob_index:
+            temp_output = tempfile.NamedTemporaryFile(
+                delete=False, suffix=Path(output_file).suffix
+            ).name
+            temp_index = tempfile.NamedTemporaryFile(delete=False, suffix=".json").name
+            output_path = Path(temp_output)
+            index_path = Path(temp_index)
+        else:
+            output_path = Path(output_file)
+            index_path = Path(index_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            index_path.parent.mkdir(parents=True, exist_ok=True)
+
         logger.info(
             f"Building video with {len(self.chunks)} chunks using {codec} codec"
         )
@@ -477,15 +497,32 @@ class MemvidEncoder:
                     raise
             if show_progress:
                 logger.info("Building search index...")
-            fresh_index_manager = IndexManager(self.config)
+            fresh_index_manager = IndexManager(
+                self.config,
+                (
+                    self.storage.connection_string
+                    if hasattr(self.storage, "connection_string")
+                    else None
+                ),
+            )
             frame_numbers = list(range(len(self.chunks)))
             fresh_index_manager.add_chunks(self.chunks, frame_numbers, show_progress)
-            fresh_index_manager.save(str(index_path.with_suffix("")))
+
+            if is_blob_index:
+                fresh_index_manager.save(
+                    str(index_path.with_suffix("")), upload_to_blob or index_file
+                )
+            else:
+                fresh_index_manager.save(str(index_path.with_suffix("")))
+
+            if is_blob_output:
+                self.storage.upload_from_local(str(output_path), output_file)
+
             stats.update(
                 {
                     "total_chunks": len(self.chunks),
-                    "video_file": str(output_path),
-                    "index_file": str(index_path),
+                    "video_file": output_file if is_blob_output else str(output_path),
+                    "index_file": index_file if is_blob_index else str(index_path),
                     "index_stats": fresh_index_manager.get_stats(),
                 }
             )

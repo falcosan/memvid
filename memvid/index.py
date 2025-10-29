@@ -4,6 +4,7 @@ import logging
 import numpy as np
 from pathlib import Path
 from .config import get_default_config
+from .storage import get_storage_adapter
 from typing import List, Dict, Any, Tuple, Optional
 from sentence_transformers import SentenceTransformer
 
@@ -11,8 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class IndexManager:
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        storage_connection: Optional[str] = None,
+    ):
         self.config = config or get_default_config()
+        self.storage = get_storage_adapter(storage_connection)
         self.embedding_model = SentenceTransformer(self.config["embedding"]["model"])
         self.dimension = self.config["embedding"]["dimension"]
         self.index: faiss.IndexIDMap = self._create_index()
@@ -272,29 +278,45 @@ class IndexManager:
             return self.metadata[chunk_id]
         return None
 
-    def save(self, path: str):
-        path_obj = Path(path)
-        faiss.write_index(self.index, str(path_obj.with_suffix(".faiss")))
+    def save(self, path: str, blob_path: Optional[str] = None):
+        path_obj = Path(self.storage.resolve_path(path) if not blob_path else path)
+        local_faiss = str(path_obj.with_suffix(".faiss"))
+        local_json = str(path_obj.with_suffix(".json"))
+
+        faiss.write_index(self.index, local_faiss)
         data = {
             "metadata": self.metadata,
             "chunk_to_frame": self.chunk_to_frame,
             "frame_to_chunks": self.frame_to_chunks,
             "config": self.config,
         }
-        with open(path_obj.with_suffix(".json"), "w") as f:
+        with open(local_json, "w") as f:
             json.dump(data, f, indent=2)
+
+        if blob_path:
+            self.storage.upload_from_local(local_faiss, blob_path + ".faiss")
+            self.storage.upload_from_local(local_json, blob_path + ".json")
+
         logger.info(f"Saved index to {path}")
 
     def load(self, path: str):
-        path_obj = Path(path)
-        loaded_index = faiss.read_index(str(path_obj.with_suffix(".faiss")))
-        # Ensure the loaded index is an IndexIDMap
+        if self.storage._is_blob_url(path):
+            faiss_path = self.storage.download_to_temp(path, ".faiss")
+            json_path = self.storage.download_to_temp(path, ".json")
+            loaded_index = faiss.read_index(faiss_path)
+        else:
+            local_path = self.storage.resolve_path(path)
+            path_obj = Path(local_path)
+            faiss_path = str(path_obj.with_suffix(".faiss"))
+            json_path = str(path_obj.with_suffix(".json"))
+            loaded_index = faiss.read_index(faiss_path)
+
         if isinstance(loaded_index, faiss.IndexIDMap):
             self.index = loaded_index
         else:
-            # Wrap in IndexIDMap if it's not already
             self.index = faiss.IndexIDMap(loaded_index)
-        with open(path_obj.with_suffix(".json"), "r") as f:
+
+        with open(json_path, "r") as f:
             data = json.load(f)
         self.metadata = data["metadata"]
         self.chunk_to_frame = {int(k): v for k, v in data["chunk_to_frame"].items()}

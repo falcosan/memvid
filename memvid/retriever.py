@@ -2,9 +2,9 @@ import cv2
 import time
 import json
 import logging
-from pathlib import Path
 from .index import IndexManager
 from .config import get_default_config
+from .storage import get_storage_adapter
 from typing import List, Dict, Any, Optional
 from .utils import batch_extract_and_decode, extract_and_decode_cached
 
@@ -14,19 +14,33 @@ logger = logging.getLogger(__name__)
 class MemvidRetriever:
 
     def __init__(
-        self, video_file: str, index_file: str, config: Optional[Dict[str, Any]] = None
+        self,
+        video_file: str,
+        index_file: str,
+        config: Optional[Dict[str, Any]] = None,
+        storage_connection: Optional[str] = None,
     ):
-        self.video_file = str(Path(video_file).absolute())
-        self.index_file = str(Path(index_file).absolute())
+        self.storage = get_storage_adapter(storage_connection)
+        self._video_file_source = video_file
+        self._video_file_local = None
+        self.index_file_path = index_file
         self.config = config or get_default_config()
-        self.index_manager = IndexManager(self.config)
-        self.index_manager.load(str(Path(index_file).with_suffix("")))
+        self.index_manager = IndexManager(self.config, storage_connection)
+        self.index_manager.load(index_file)
         self._frame_cache = {}
         self._cache_size = self.config["retrieval"]["cache_size"]
-        self._verify_video()
+        self.total_frames = 0
+        self.fps = 0
         logger.info(
             f"Initialized retriever with {self.index_manager.get_stats()['total_chunks']} chunks"
         )
+
+    @property
+    def video_file(self):
+        if self._video_file_local is None:
+            self._video_file_local = self.storage.resolve_path(self._video_file_source)
+            self._verify_video()
+        return self._video_file_local
 
     def _verify_video(self):
         cap = cv2.VideoCapture(self.video_file)
@@ -87,19 +101,30 @@ class MemvidRetriever:
                     scored_results.insert(0, match)
                     added += 1
         search_results = [(r[0], r[1], r[2]) for r in scored_results[:top_k]]
-        frame_numbers = list(set(result[2]["frame"] for result in search_results))
-        decoded_frames = self._decode_frames_parallel(frame_numbers)
+
         results = []
+        frames_to_decode = []
+
         for chunk_id, distance, metadata in search_results:
-            frame_num = metadata["frame"]
-            if frame_num in decoded_frames:
-                try:
-                    chunk_data = json.loads(decoded_frames[frame_num])
-                    results.append(chunk_data["text"])
-                except (json.JSONDecodeError, KeyError):
-                    results.append(metadata["text"])
+            text = metadata.get("text", "")
+            if text and len(text) > 10:
+                results.append(text)
             else:
-                results.append(metadata["text"])
+                frames_to_decode.append((chunk_id, metadata["frame"]))
+
+        if frames_to_decode:
+            frame_numbers = [f[1] for f in frames_to_decode]
+            decoded_frames = self._decode_frames_parallel(frame_numbers)
+            for chunk_id, frame_num in frames_to_decode:
+                if frame_num in decoded_frames:
+                    try:
+                        chunk_data = json.loads(decoded_frames[frame_num])
+                        results.append(chunk_data["text"])
+                    except (json.JSONDecodeError, KeyError):
+                        results.append("")
+                else:
+                    results.append("")
+
         elapsed = time.time() - start_time
         logger.info(f"Search completed in {elapsed:.3f}s for query: '{query[:50]}...'")
         return results

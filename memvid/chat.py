@@ -27,6 +27,7 @@ class MemvidChat:
         llm_base_url: Optional[str] = None,
         config: Optional[Dict] = None,
         retriever_kwargs: Optional[Dict] = None,
+        storage_connection: Optional[str] = None,
     ):
         """
         Initialize MemvidChat with flexible LLM provider support
@@ -39,14 +40,17 @@ class MemvidChat:
             llm_api_key: API key (uses environment variables if None)
             config: Optional configuration dictionary
             retriever_kwargs: Additional arguments for MemvidRetriever
+            storage_connection: Azure Blob Storage connection string
         """
         self.video_file = video_file
         self.index_file = index_file
         self.config = config or get_default_config()
 
-        # Initialize retriever
         retriever_kwargs = retriever_kwargs or {}
-        self.retriever = MemvidRetriever(video_file, index_file, self.config)
+        retriever_kwargs["storage_connection"] = storage_connection
+        self.retriever = MemvidRetriever(
+            video_file, index_file, self.config, **retriever_kwargs
+        )
 
         # Initialize LLM client
         try:
