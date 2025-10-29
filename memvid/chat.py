@@ -98,7 +98,11 @@ class MemvidChat:
         return """You are a helpful AI assistant with access to a knowledge base stored in video format. You must to answer always in the same language as the question."""
 
     def chat(
-        self, message: str, stream: bool = False, max_context_tokens: int = 2000
+        self,
+        message: str,
+        stream: bool = False,
+        max_context_tokens: int = 2000,
+        use_history: bool = False,
     ) -> str:
         """
         Send a message and get a response using retrieved context
@@ -107,6 +111,7 @@ class MemvidChat:
             message: User message
             stream: Whether to stream the response
             max_context_tokens: Maximum tokens to use for context
+            use_history: Whether to include conversation history in context
         """
         if not self.session_id:
             self.start_session()
@@ -118,7 +123,7 @@ class MemvidChat:
         context = self._get_context(message, max_context_tokens)
 
         # Build messages for LLM
-        messages = self._build_messages(message, context)
+        messages = self._build_messages(message, context, use_history)
 
         # Add to conversation history
         self.conversation_history.append({"role": "user", "content": message})
@@ -156,13 +161,22 @@ class MemvidChat:
             logger.error(f"Error retrieving context: {e}")
             return ""
 
-    def _build_messages(self, message: str, context: str) -> List[Dict[str, str]]:
+    def _build_messages(
+        self, message: str, context: str, use_history: bool = False
+    ) -> List[Dict[str, str]]:
         """Build the message list for the LLM"""
         messages = []
 
         # Add system prompt
         if self.system_prompt:
             messages.append({"role": "system", "content": self.system_prompt})
+
+        # Only add conversation history if explicitly requested or for follow-ups
+        if use_history and self.conversation_history:
+            # Get the last N messages from history
+            history_to_include = self.conversation_history[-(self.max_history * 2) :]
+            for hist_msg in history_to_include:
+                messages.append(hist_msg)
 
         # Prepare the current message with context
         if context.strip():
@@ -247,6 +261,9 @@ User question: {message}"""
         print("  - Type 'quit' or 'exit' to end")
         print("  - Type 'clear' to clear conversation history")
         print("  - Type 'stats' to see session statistics")
+        print(
+            "  - Type '+' at the start to include conversation history (follow-up mode)"
+        )
         print("=" * 50)
 
         while True:
@@ -274,11 +291,19 @@ User question: {message}"""
                 if not user_input:
                     continue
 
+                # Check if user wants to use history (follow-up question)
+                use_history = False
+                if user_input.startswith("+"):
+                    use_history = True
+                    user_input = user_input[1:].strip()
+
                 # Get response (always stream for better UX if LLM available)
                 if self.llm_client:
-                    self.chat(user_input, stream=True)
+                    self.chat(user_input, stream=True, use_history=use_history)
                 else:
-                    response = self.chat(user_input, stream=False)
+                    response = self.chat(
+                        user_input, stream=False, use_history=use_history
+                    )
                     print(f"Assistant: {response}")
 
             except KeyboardInterrupt:
